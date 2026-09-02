@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IBVAP - Video Ingestion</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #1a1a1a; margin-bottom: 5px; }
+        .subtitle { color: #666; margin-top: 0; margin-bottom: 30px; font-size: 14px; }
+        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f9fa; font-weight: 600; color: #333; }
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .ONLINE { background: #d4edda; color: #155724; }
+        .OFFLINE { background: #f8d7da; color: #721c24; }
+        .RECONNECTING, .CONNECTING { background: #fff3cd; color: #856404; }
+        .STOPPED, .DISABLED { background: #e2e3e5; color: #383d41; }
+        .ERROR { background: #f8d7da; color: #721c24; }
+        button { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500; margin-right: 5px; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .frame-preview { max-width: 150px; border-radius: 4px; cursor: pointer; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
+        .modal-content { margin: auto; display: block; max-width: 80%; max-height: 80%; margin-top: 50px; }
+        .close { position: absolute; top: 15px; right: 35px; color: #f1f1f1; font-size: 40px; font-weight: bold; cursor: pointer; }
+        form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        .form-group { margin-bottom: 15px; }
+        .full-width { grid-column: span 2; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>IBVAP</h1>
+        <p class="subtitle">VIDEO INGESTION & STREAM MANAGER</p>
+        
+        <div class="card">
+            <h3>Add New Camera</h3>
+            <form id="addCameraForm">
+                <div class="form-group">
+                    <label>Camera ID</label>
+                    <input type="text" id="cameraId" required placeholder="e.g. BOP-01">
+                </div>
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="cameraName" required placeholder="e.g. Front Gate">
+                </div>
+                <div class="form-group">
+                    <label>Location</label>
+                    <input type="text" id="cameraLocation" required placeholder="e.g. North Perimeter">
+                </div>
+                <div class="form-group">
+                    <label>Source Type</label>
+                    <select id="sourceType">
+                        <option value="rtsp">RTSP</option>
+                        <option value="webcam">Webcam</option>
+                        <option value="file">Video File</option>
+                    </select>
+                </div>
+                <div class="form-group full-width">
+                    <label>Source URL</label>
+                    <input type="text" id="sourceUrl" required placeholder="rtsp://... or 0 or ./media/sample/test.mp4">
+                </div>
+                <div class="form-group">
+                    <label>Target FPS</label>
+                    <input type="number" id="targetFps" value="5" min="1" max="60">
+                </div>
+                <div class="form-group">
+                    <label>Buffer Size</label>
+                    <input type="number" id="bufferSize" value="10" min="1" max="100">
+                </div>
+                <div class="form-group full-width">
+                    <button type="submit" class="btn-primary">Add Camera</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Registered Cameras</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Camera ID</th>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>FPS (Cur/Tgt)</th>
+                        <th>Resolution</th>
+                        <th>Preview</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="cameraList">
+                    <tr><td colspan="7">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- The Modal -->
+    <div id="imageModal" class="modal">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <img class="modal-content" id="modalImage">
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+
+        async function fetchHealth() {
+            try {
+                const res = await fetch(`${API_BASE}/health`);
+                const data = await res.json();
+                return data.streams;
+            } catch (e) {
+                console.error("Failed to fetch health", e);
+                return [];
+            }
+        }
+
+        async function fetchCameras() {
+            try {
+                const res = await fetch(`${API_BASE}/cameras`);
+                const cameras = await res.json();
+                const healths = await fetchHealth();
+                
+                const healthMap = {};
+                healths.forEach(h => healthMap[h.camera_id] = h);
+
+                const tbody = document.getElementById('cameraList');
+                tbody.innerHTML = '';
+
+                if (cameras.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7">No cameras registered.</td></tr>';
+                    return;
+                }
+
+                cameras.forEach(cam => {
+                    const health = healthMap[cam.camera_id] || { status: 'UNKNOWN', current_fps: 0, resolution: '--' };
+                    const tr = document.createElement('tr');
+                    
+                    const ts = new Date().getTime(); // cache buster for images
+                    
+                    let actions = '';
+                    if (['STOPPED', 'DISABLED', 'UNKNOWN'].includes(health.status)) {
+                        actions += `<button class="btn-success" onclick="startStream('${cam.camera_id}')">Start</button>`;
+                    } else {
+                        actions += `<button class="btn-danger" onclick="stopStream('${cam.camera_id}')">Stop</button>`;
+                    }
+                    actions += `<button class="btn-danger" style="background:#555;" onclick="deleteCamera('${cam.camera_id}')">Delete</button>`;
+
+                    tr.innerHTML = `
+                        <td><strong>${cam.camera_id}</strong></td>
+                        <td>${cam.name}</td>
+                        <td><span class="status-badge ${health.status}">${health.status}</span></td>
+                        <td>${health.current_fps} / ${cam.target_fps}</td>
+                        <td>${health.resolution}</td>
+                        <td>
+                            ${health.status === 'ONLINE' ? 
+                              `<img src="${API_BASE}/cameras/${cam.camera_id}/frame?t=${ts}" class="frame-preview" onclick="openModal(this.src)" onerror="this.style.display='none'">` 
+                              : '-'}
+                        </td>
+                        <td>${actions}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function startStream(id) {
+            await fetch(`${API_BASE}/cameras/${id}/start`, { method: 'POST' });
+            fetchCameras();
+        }
+
+        async function stopStream(id) {
+            await fetch(`${API_BASE}/cameras/${id}/stop`, { method: 'POST' });
+            fetchCameras();
+        }
+        
+        async function deleteCamera(id) {
+            if(confirm("Are you sure?")) {
+                await fetch(`${API_BASE}/cameras/${id}`, { method: 'DELETE' });
+                fetchCameras();
+            }
+        }
+
+        document.getElementById('addCameraForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                camera_id: document.getElementById('cameraId').value,
+                name: document.getElementById('cameraName').value,
+                location: document.getElementById('cameraLocation').value,
+                source_type: document.getElementById('sourceType').value,
+                source_url: document.getElementById('sourceUrl').value,
+                target_fps: parseInt(document.getElementById('targetFps').value),
+                buffer_size: parseInt(document.getElementById('bufferSize').value),
+                enabled: true
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/cameras`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    document.getElementById('addCameraForm').reset();
+                    fetchCameras();
+                } else {
+                    const err = await res.json();
+                    alert(err.detail || "Error adding camera");
+                }
+            } catch (e) {
+                alert("Network error");
+            }
+        });
+
+        // Modal for image preview
+        function openModal(src) {
+            document.getElementById('imageModal').style.display = "block";
+            document.getElementById('modalImage').src = src;
+        }
+
+        function closeModal() {
+            document.getElementById('imageModal').style.display = "none";
+        }
+
+        // Poll every 2 seconds
+        setInterval(fetchCameras, 2000);
+        fetchCameras();
+    </script>
+</body>
+</html>
