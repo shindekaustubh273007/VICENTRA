@@ -55,3 +55,46 @@ class StreamHealth(BaseModel):
     last_frame_timestamp: Optional[datetime] = None
     last_error: Optional[str] = None
     uptime_seconds: int
+
+
+# ─── Phase 2: AI Detection Schemas ──────────────────────────────────
+
+class BoundingBoxSchema(BaseModel):
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+
+class DetectionSchema(BaseModel):
+    camera_id: str
+    timestamp: datetime
+    frame_timestamp: str
+    class_id: int
+    class_name: str
+    category: str
+    confidence: float
+    bounding_box: BoundingBoxSchema
+
+class DetectionListResponse(BaseModel):
+    camera_id: str
+    count: int
+    detections: list[DetectionSchema]
+
+class InferenceCameraStatus(BaseModel):
+    camera_id: str
+    status: str
+    frames_processed: int = 0
+    frames_skipped: int = 0
+    total_detections: int = 0
+    average_inference_ms: float = 0.0
+    inference_fps: float = 0.0
+    detections_per_class: dict = {}
+
+class InferenceStatusResponse(BaseModel):
+    ai_enabled: bool = True
+    model_name: Optional[str] = None
+    selected_device: Optional[str] = None
+    confidence_threshold: Optional[float] = None
+    iou_threshold: Optional[float] = None
+    cameras: list[InferenceCameraStatus] = []
+
