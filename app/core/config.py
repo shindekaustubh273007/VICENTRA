@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     AI_INFERENCE_FPS: float = 2.0
     AI_MAX_RESULTS_PER_CAMERA: int = 100
     
+    # --- Phase 3: Object Tracking ---
+    TRACKING_ENABLED: bool = True
+    TRACKING_MAX_MISSED_FRAMES: int = 5
+    TRACKING_MAX_HISTORY: int = 50
+    TRACKING_ASSOCIATION_THRESHOLD: float = 50.0  # Pixel distance threshold
+    
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

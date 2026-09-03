@@ -132,6 +132,33 @@ Raw image data should not be included in detection JSON.
 
 ---
 
+# Phase 3 — Object Tracking
+
+Phase 3 builds upon Phase 2 by associating bounding boxes across consecutive frames and assigning persistent tracking identities to objects. 
+
+The integration pipeline is:
+
+```text
+Standardized Detection Results (ResultStore)
+        ↓
+Background Tracking Loop
+        ↓
+Object Tracker (Centroid matching)
+        ↓
+TrackedObject States
+        ↓
+TrackedStore (Bounded)
+        ↓
+API / Future Event Engine
+```
+
+Phase 3 introduces the following core rules:
+- Tracking should not run inside the Video Ingestion loops or the Inference loops to avoid blocking them. Instead, it polls the Phase 2 `ResultStore`.
+- Tracks are camera-isolated. Cross-camera tracking is not currently supported.
+- `TrackedStore` is the public boundary for fetching the latest tracked objects.
+
+---
+
 # Architecture Rules
 
 The following rules apply to all future phases:

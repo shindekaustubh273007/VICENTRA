@@ -98,3 +98,28 @@ class InferenceStatusResponse(BaseModel):
     iou_threshold: Optional[float] = None
     cameras: list[InferenceCameraStatus] = []
 
+# ─── Phase 3: Tracking Schemas ──────────────────────────────────────
+
+class PositionSchema(BaseModel):
+    x: float
+    y: float
+
+class TrackedObjectSchema(BaseModel):
+    track_id: str
+    camera_id: str
+    class_id: int
+    class_name: str
+    category: str
+    confidence: float
+    current_bounding_box: BoundingBoxSchema
+    current_position: PositionSchema
+    first_seen: datetime
+    last_seen: datetime
+    track_age: int
+    missed_frames: int
+    position_history: list[PositionSchema]
+
+class TrackingResponse(BaseModel):
+    camera_id: str
+    count: int
+    tracks: list[TrackedObjectSchema]

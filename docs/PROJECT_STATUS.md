@@ -44,258 +44,44 @@ The priority is to build one convincing end-to-end surveillance workflow rather 
 | ------- | ----------------------------------- | -------------------------------------------- |
 | Phase 1 | Video Ingestion & Stream Manager    | Completed                                    |
 | Phase 2 | AI Inference Engine                 | Completed / Repository Verification Required |
-| Phase 3 | Tracking & Analytics                | Next / In Planning                           |
-| Phase 4 | ANPR / Face / Specialized Detection | Not Started                                  |
-| Phase 5 | Event & Alert Engine                | Not Started                                  |
-| Phase 6 | Command Dashboard                   | Not Started                                  |
-| Phase 7 | Integration, Testing & Final Demo   | Not Started                                  |
-| Phase 8 | Windows Packaging & Deployment      | Not Started                                  |
-
-> Important: Before marking Phase 2 as fully complete, verify its actual implementation and test status in the repository. Documentation must match the source code.
+| Phase 3 | Tracking & Analytics                | Completed                                    |
+| Phase 4 | ANPR / Face / Specialized Detection | Next / In Planning                           |
 
 ---
 
-# Completed Phase 1 — Video Ingestion
+# Completed Phase 3 — Object Tracking
 
-Phase 1 provides the foundation for all downstream processing.
+Phase 3 establishes the foundation for tracking objects over time by associating detections from Phase 2.
 
-## Data Flow
+## Implemented Responsibilities
 
-```text
-Camera / RTSP / Video Source
-        ↓
-StreamWorker
-        ↓
-FrameSampler
-        ↓
-FrameBuffer
-        ↓
-FrameProvider
-```
+- **`TrackedObject`**: Schema representing objects over time, retaining history and assigning a `track_id`.
+- **`ObjectTracker`**: A per-camera lightweight centroid-distance based association algorithm.
+- **`TrackingLoop`**: A daemon thread that polls `ResultStore` to fetch the latest detections without blocking upstream layers.
+- **`TrackedStore`**: A thread-safe bounded store for the latest tracked objects.
+- **`TrackingManager`**: Orchestrates `TrackingLoop`s, tying their lifecycle to the FastAPI app.
+- **API**: Exposed `GET /api/v1/tracking/{camera_id}` for clients.
 
-## Confirmed Responsibilities
+## Explicitly Outside Phase 3
 
-Phase 1 provides:
-
-- Video source connection.
-- Frame capture.
-- Reconnection and failure recovery.
-- Frame sampling.
-- Bounded frame buffering.
-- Thread-safe frame access.
-- Public frame access for downstream consumers.
-- Camera/frame metadata.
-
-## Integration Rule
-
-Downstream phases should use the existing public `FrameProvider` interface to consume frames.
-
-Do not create:
-
-- A second RTSP connection for AI.
-- A separate camera capture pipeline.
-- Direct dependencies on internal worker buffers unless explicitly exposed by the repository.
+- **Virtual Fencing & Zone Intrusion**: Deferred to Phase 4/5 Event Engine.
+- **Cross-Camera Tracking**: Deferred. Tracks are isolated per camera.
 
 ---
 
-# Phase 2 — AI Inference
-
-## Intended Data Flow
-
-```text
-FrameProvider
-        ↓
-InferenceLoop
-        ↓
-Object Detector
-        ↓
-Detection Parser
-        ↓
-Standardized Detection Results
-        ↓
-ResultStore
-        ↓
-API / Annotated Frames
-```
-
-## Intended Responsibilities
-
-Phase 2 is responsible for:
-
-- Person detection.
-- Vehicle detection.
-- Original model vehicle class preservation where available.
-- Higher-level categories.
-- Confidence scores.
-- Bounding boxes.
-- Camera ID preservation.
-- Timestamp preservation.
-- Frame ID preservation.
-- Relevant frame metadata preservation.
-- Annotated frames.
-- Recent detection result storage.
-- Multi-camera-capable design.
-- Inference metrics.
-- CUDA-first processing where available.
-- CPU fallback.
-- Configuration through environment variables.
-- Logging and error handling.
-- API integration.
-- Tests and documentation.
-
-## Explicitly Outside Phase 2
-
-The following belong to later phases:
-
-- Persistent object tracking.
-- Virtual fence logic.
-- Intrusion detection.
-- ANPR.
-- Face recognition.
-- Suspicious behavior detection.
-- Alert generation.
-- Permanent event storage.
-- Major command dashboard development.
-
----
-
-# Immediate Next Phase — Phase 3
+# Immediate Next Phase — Phase 4
 
 ## Phase Name
 
-**Tracking & Analytics**
+**Specialized Detection (ANPR / Face) & Event/Virtual Fence Engine**
 
 ## Primary Objective
 
-Extend the existing detection pipeline by associating object detections across frames and maintaining persistent object identities.
+Now that objects are tracked with persistence, the system should allow users to draw virtual zones (fences) and trigger events when tracked objects enter or cross them. Additionally, Phase 4 should explore extending detection models for License Plates (ANPR) or Faces where applicable.
 
-The basic flow should become:
+## Recommended Next Action
 
-```text
-Camera
-  ↓
-Phase 1 — Frame Ingestion
-  ↓
-Phase 2 — Object Detection
-  ↓
-Standardized Detections
-  ↓
-Phase 3 — Object Tracking
-  ↓
-Persistent Track IDs
-  ↓
-Tracking Analytics
-```
-
-## Phase 3 Core Goals
-
-Phase 3 should investigate and implement, based on the actual repository architecture:
-
-- Persistent tracking IDs.
-- Detection association across frames.
-- Per-camera tracker state.
-- Track creation and lifecycle management.
-- Track updates.
-- Handling temporary missed detections.
-- Track expiration.
-- Object position history.
-- Movement information where useful.
-- Tracked-object result storage.
-- API integration.
-- Track visualization or annotated frames where useful.
-- Tests.
-
-## Architectural Constraints
-
-Phase 3 must:
-
-1. Consume the output of completed phases rather than duplicate them.
-2. Preserve camera separation.
-3. Avoid blocking video capture.
-4. Avoid redesigning Phase 1 unnecessarily.
-5. Avoid replacing the Phase 2 detection system.
-6. Use the actual repository interfaces.
-7. Keep recent state bounded.
-8. Support multiple cameras architecturally.
-9. Keep tracking independent from HTTP request execution.
-10. Add focused tests for the new functionality.
-
----
-
-# Phase 3 Discovery Checklist
-
-Before implementation, inspect the repository and determine:
-
-```text
-[ ] Exact FrameProvider interface
-[ ] Exact detection result schema
-[ ] Exact inference result storage interface
-[ ] Camera lifecycle and startup hooks
-[ ] Background worker architecture
-[ ] Current FastAPI application structure
-[ ] Existing configuration system
-[ ] Existing logging conventions
-[ ] Existing test structure
-[ ] Current Phase 2 completion status
-```
-
-Do not implement Phase 3 based only on assumptions from documentation.
-
----
-
-# Recommended Next Action
-
-The next coding-agent or developer task should be repository discovery only.
-
-Recommended workflow:
-
-```text
-1. Read PROJECT_CONTEXT.md
-        ↓
-2. Read docs/ARCHITECTURE.md
-        ↓
-3. Read this PROJECT_STATUS.md
-        ↓
-4. Inspect Phase 1 and Phase 2 source code
-        ↓
-5. Identify exact integration points
-        ↓
-6. Return concise Phase 3 implementation plan
-        ↓
-7. Review and approve the plan
-        ↓
-8. Implement in small, testable increments
-```
-
-The first implementation should be a small vertical slice rather than the entire Phase 3 system at once.
-
-A recommended first milestone is:
-
-```text
-Existing Detection Results
-        ↓
-Single-Camera Tracker
-        ↓
-Persistent Track IDs
-        ↓
-Tracked Result Store
-        ↓
-One API Endpoint
-        ↓
-Tests
-```
-
-After that works correctly, expand toward:
-
-```text
-Multi-camera management
-        ↓
-Track history
-        ↓
-Movement analytics
-        ↓
-Virtual fence integration
-```
+The next step is to design the Event Engine that consumes `TrackedStore` or `TrackingLoop` outputs, checks for zone intersections using the position history, and emits `IntrusionEvent`s.
 
 ---
 

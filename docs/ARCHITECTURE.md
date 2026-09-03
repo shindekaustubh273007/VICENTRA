@@ -274,9 +274,9 @@ If Phase 3 requires access to image frames for a tracking algorithm, it should u
 
 # 5. Phase 3 — Tracking & Analytics Integration Boundary
 
-Phase 3 will build on top of Phase 2.
+Phase 3 builds on top of Phase 2.
 
-The intended architecture is:
+The implemented architecture is:
 
 ```text
 Phase 1
@@ -287,34 +287,31 @@ Phase 2
 Object Detection
         │
         ▼
-Standardized Detection Results
+Standardized Detection Results (ResultStore)
         │
         ▼
 Phase 3
-Tracking Manager
+Tracking Manager (Manages per-camera TrackingLoops)
         │
         ▼
-Object Tracker
+TrackingLoop (polls ResultStore)
+        │
+        ▼
+Object Tracker (Centroid/IOU Association)
         │
         ├── Persistent Track ID
         ├── Object State
         ├── Position History
-        ├── Velocity / Movement Data
-        └── Track Lifecycle
+        ├── Track Lifecycle
         │
         ▼
-Analytics Layer
-        │
-        ├── Virtual Fence Evaluation
-        ├── Zone Entry / Exit
-        ├── Movement Analysis
-        └── Future Behaviour Rules
+TrackedStore (Bounded per-camera storage)
         │
         ▼
-Tracked Objects / Analytics Events
+FastAPI Tracking Endpoints (/api/v1/tracking)
 ```
 
-The exact implementation must be based on the actual repository interfaces.
+The exact implementation uses `TrackingLoop` to poll the `ResultStore` for new frame timestamps, ensuring that tracking does not block the upstream inference or video ingestion threads.
 
 Before implementing Phase 3, inspect:
 

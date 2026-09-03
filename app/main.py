@@ -8,8 +8,10 @@ from app.core.logging import setup_logging
 from app.database.database import engine, Base
 from app.api import cameras, health
 from app.api.detections import ai_router
+from app.api.tracking import router as tracking_router
 from app.services.stream_manager import stream_manager
 from app.services.inference_manager import inference_manager
+from app.services.tracking_manager import tracking_manager
 import os
 
 # Initialize database
@@ -36,12 +38,14 @@ async def lifespan(app: FastAPI):
             )
             if started:
                 inference_manager.start_inference(camera_id=cam.camera_id)
+                tracking_manager.start_tracking(camera_id=cam.camera_id)
     finally:
         db.close()
         
     yield
     
     # Teardown
+    tracking_manager.shutdown()
     inference_manager.shutdown()
     stream_manager.shutdown()
 
@@ -62,6 +66,7 @@ app.add_middleware(
 # Routers
 app.include_router(cameras.router, prefix=f"{settings.API_V1_STR}/cameras", tags=["Cameras"])
 app.include_router(ai_router, prefix=f"{settings.API_V1_STR}/ai", tags=["AI Engine"])
+app.include_router(tracking_router, prefix=f"{settings.API_V1_STR}/tracking", tags=["Tracking"])
 app.include_router(health.router, prefix=f"{settings.API_V1_STR}/health", tags=["Health"])
 
 # Static Dashboard (ensure dir exists)
