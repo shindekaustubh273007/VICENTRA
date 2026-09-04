@@ -159,6 +159,98 @@ Phase 3 introduces the following core rules:
 
 ---
 
+# Phase 4 — Virtual Fences, Zones & Intrusion Detection
+
+Phase 4 builds upon Phase 3 by evaluating tracked object positions against camera-specific Virtual Zones (polygons) and emitting state-transition security events.
+
+The integration pipeline is:
+
+```text
+TrackedObject States (TrackedStore)
+        ↓
+Background Zone Evaluation Loop (Ray-Casting Algorithm)
+        ↓
+State Transition Logic (Outside ↔ Inside)
+        ↓
+Event Generator (ENTER / EXIT / INTRUSION)
+        ↓
+EventStore (Bounded) & DB Persistence (Zones)
+        ↓
+API / Zone & Event Overlays on Annotated Frames
+```
+
+Phase 4 introduces the following core rules:
+- Ray-casting polygon intersection algorithm tests object ground position (bottom-center of bounding box) against zones belonging strictly to that camera.
+- State transitions (`Outside → Inside` => `ENTER` / `INTRUSION`, `Inside → Outside` => `EXIT`) are strictly deduplicated so continuous presence generates no duplicate events.
+- Expired track states are automatically purged from evaluation loops to prevent memory leaks.
+- `EventStore` is the public boundary for fetching recent security intrusion events.
+
+---
+
+# Phase 5 — Real-Time Alerts & Event Engine
+
+Phase 5 delivers security events created by Phase 4 to connected dashboard clients in real time via WebSocket broadcast, eliminating the need for frontend polling.
+
+The integration pipeline is:
+
+```text
+Security Event Created (ZoneEvaluationLoop)
+        ↓
+EventStore.add_event() [on_event callback hook]
+        ↓
+EventDispatcher (In-process thread-safe dispatcher)
+        ↓
+WebSocket ConnectionManager (Broadcasts to active clients)
+        ↓
+Connected Dashboard Clients (/api/events/ws)
+        ↓
+🚨 Real-Time Security Alert UI
+```
+
+Phase 5 introduces the following core rules:
+- Event creation remains strictly owned by Phase 4; Phase 5 handles only delivery.
+- EventStore hooks into the EventDispatcher via a lightweight non-blocking callback hook (`on_event`).
+- Dispatching from background daemon threads to async WebSockets is bridged safely using `asyncio.run_coroutine_threadsafe`.
+- Connection failure or slow send on one client is isolated and will not block surveillance pipeline processing or other clients.
+- Broken connections are automatically pruned to prevent memory leaks.
+- Client reconnection uses exponential backoff to handle server restarts smoothly without polling loops.
+
+---
+
+# Phase 6 — Windows EXE Packaging & Deployment
+
+Phase 6 packages the complete Phase 1–5 pipeline into a distributable Windows application using PyInstaller's one-directory distribution mode.
+
+The packaging architecture is:
+
+```text
+Developer runs build script (scripts/build_windows.ps1)
+        ↓
+PyInstaller compiles (vicentra.spec)
+        ↓
+dist/VICENTRA/ one-directory distribution
+        ↓
+Operator double-clicks VICENTRA.exe
+        ↓
+Bootstrap (app/bootstrap.py)
+  → Single-instance lock check
+  → Port availability check
+  → Uvicorn server launch (background thread)
+  → Health-check readiness polling (/api/health)
+  → Automatic browser launch
+        ↓
+Dashboard available at http://localhost:8000/
+```
+
+Phase 6 introduces the following core rules:
+- Read-only application resources (static assets, model weights) are resolved via `get_resource_path()` which uses `sys._MEIPASS` in packaged mode.
+- Writable user data (SQLite database, logs, runtime locks) is stored in `%LOCALAPPDATA%/VICENTRA/` via `get_data_dir()`.
+- Single-instance enforcement prevents duplicate launches via PID-based file locks.
+- The web dashboard remains the user interface; no native desktop GUI is created.
+- One-directory distribution avoids the 30s+ unpacking penalty of one-file mode for large PyTorch/OpenCV binaries.
+
+---
+
 # Architecture Rules
 
 The following rules apply to all future phases:

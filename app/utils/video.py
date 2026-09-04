@@ -44,48 +44,95 @@ _DEFAULT_COLOUR = (0, 255, 255)  # yellow
 
 def annotate_frame(
     frame: np.ndarray,
-    detections: List["Detection"],
+    detections: List["Detection"] = None,
+    zones: List[Any] = None,
 ) -> np.ndarray:
     """
     Return a *copy* of *frame* with bounding boxes, class names,
-    and confidence scores drawn for each detection.
+    confidence scores, and optional virtual zone overlays drawn.
     The original frame is never modified.
     """
     annotated = frame.copy()
 
-    for det in detections:
-        colour = _COLOURS.get(det.category, _DEFAULT_COLOUR)
-        x1, y1 = int(det.bounding_box.x1), int(det.bounding_box.y1)
-        x2, y2 = int(det.bounding_box.x2), int(det.bounding_box.y2)
+    # 1. Draw Virtual Zone Overlays if provided
+    if zones:
+        for z in zones:
+            # Determine color: Red (0, 0, 255) for restricted, Cyan (255, 255, 0) for monitoring
+            is_restricted = getattr(z, "zone_type", "restricted") == "restricted"
+            zone_color = (0, 0, 255) if is_restricted else (255, 255, 0)
+            
+            coords = getattr(z, "coordinates", [])
+            if len(coords) >= 3:
+                # Convert coords to numpy int32 array for cv2.polylines
+                if isinstance(coords[0], (tuple, list)):
+                    pts = np.array([[int(p[0]), int(p[1])] for p in coords], np.int32)
+                elif isinstance(coords[0], dict):
+                    pts = np.array([[int(p["x"]), int(p["y"])] for p in coords], np.int32)
+                else:
+                    pts = np.array([], np.int32)
 
-        # Bounding box
-        cv2.rectangle(annotated, (x1, y1), (x2, y2), colour, 2)
+                if len(pts) >= 3:
+                    pts = pts.reshape((-1, 1, 2))
 
-        # Label text
-        label = f"{det.class_name} {det.confidence:.2f}"
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.5
-        thickness = 1
-        (tw, th), baseline = cv2.getTextSize(label, font, font_scale, thickness)
+                    # Semi-transparent fill overlay
+                    overlay = annotated.copy()
+                    cv2.fillPoly(overlay, [pts], zone_color)
+                    cv2.addWeighted(overlay, 0.15, annotated, 0.85, 0, annotated)
 
-        # Background rectangle for text readability
-        cv2.rectangle(
-            annotated,
-            (x1, y1 - th - baseline - 4),
-            (x1 + tw + 4, y1),
-            colour,
-            cv2.FILLED,
-        )
-        cv2.putText(
-            annotated,
-            label,
-            (x1 + 2, y1 - baseline - 2),
-            font,
-            font_scale,
-            (0, 0, 0),
-            thickness,
-            cv2.LINE_AA,
-        )
+                    # Polygon border
+                    cv2.polylines(annotated, [pts], isClosed=True, color=zone_color, thickness=2)
+
+                    # Label at top-left vertex of polygon
+                    name = getattr(z, "name", "Zone")
+                    label_text = f"ZONE: {name} ({'RESTRICTED' if is_restricted else 'MONITOR'})"
+                    x0, y0 = pts[0][0][0], pts[0][0][1]
+                    cv2.putText(
+                        annotated,
+                        label_text,
+                        (x0, max(20, y0 - 8)),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        zone_color,
+                        2,
+                        cv2.LINE_AA,
+                    )
+
+    # 2. Draw Detections if provided
+    if detections:
+        for det in detections:
+            colour = _COLOURS.get(det.category, _DEFAULT_COLOUR)
+            x1, y1 = int(det.bounding_box.x1), int(det.bounding_box.y1)
+            x2, y2 = int(det.bounding_box.x2), int(det.bounding_box.y2)
+
+            # Bounding box
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), colour, 2)
+
+            # Label text
+            label = f"{det.class_name} {det.confidence:.2f}"
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 0.5
+            thickness = 1
+            (tw, th), baseline = cv2.getTextSize(label, font, font_scale, thickness)
+
+            # Background rectangle for text readability
+            cv2.rectangle(
+                annotated,
+                (x1, y1 - th - baseline - 4),
+                (x1 + tw + 4, y1),
+                colour,
+                cv2.FILLED,
+            )
+            cv2.putText(
+                annotated,
+                label,
+                (x1 + 2, y1 - baseline - 2),
+                font,
+                font_scale,
+                (0, 0, 0),
+                thickness,
+                cv2.LINE_AA,
+            )
 
     return annotated
+
 

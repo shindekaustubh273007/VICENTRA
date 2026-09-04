@@ -7,6 +7,9 @@ from app.database import models
 from app.models import schemas
 from app.services.stream_manager import stream_manager
 from app.services.inference_manager import inference_manager
+from app.services.tracking_manager import tracking_manager
+from app.services.zone_manager import zone_manager
+from app.services.zone_store import zone_store
 from app.services.provider import provider
 from app.utils.video import encode_frame_to_jpeg
 
@@ -41,6 +44,8 @@ def create_camera(camera: schemas.CameraCreate, db: Session = Depends(get_db)):
         )
         if started:
             inference_manager.start_inference(camera_id=new_camera.camera_id)
+            tracking_manager.start_tracking(camera_id=new_camera.camera_id)
+            zone_manager.start_zone_evaluation(camera_id=new_camera.camera_id)
         
     return new_camera
 
@@ -82,9 +87,13 @@ def update_camera(camera_id: str, camera_update: schemas.CameraUpdate, db: Sessi
             )
             if started:
                 inference_manager.start_inference(camera_id=db_camera.camera_id)
+                tracking_manager.start_tracking(camera_id=db_camera.camera_id)
+                zone_manager.start_zone_evaluation(camera_id=db_camera.camera_id)
         else:
             stream_manager.stop_stream(camera_id)
             inference_manager.stop_inference(camera_id)
+            tracking_manager.stop_tracking(camera_id)
+            zone_manager.stop_zone_evaluation(camera_id)
             
     return db_camera
 
@@ -96,6 +105,8 @@ def delete_camera(camera_id: str, db: Session = Depends(get_db)):
     
     stream_manager.remove_stream(camera_id)
     inference_manager.remove_inference(camera_id)
+    tracking_manager.remove_tracking(camera_id)
+    zone_manager.remove_zone_evaluation(camera_id)
     db.delete(db_camera)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -121,6 +132,8 @@ def start_camera_stream(camera_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Stream already running or cannot be started.")
         
     inference_manager.start_inference(camera_id=db_camera.camera_id)
+    tracking_manager.start_tracking(camera_id=db_camera.camera_id)
+    zone_manager.start_zone_evaluation(camera_id=db_camera.camera_id)
     return {"message": f"Stream started for camera {camera_id}"}
 
 @router.post("/{camera_id}/stop")
@@ -131,6 +144,8 @@ def stop_camera_stream(camera_id: str, db: Session = Depends(get_db)):
         
     stopped = stream_manager.stop_stream(camera_id)
     inference_manager.stop_inference(camera_id)
+    tracking_manager.stop_tracking(camera_id)
+    zone_manager.stop_zone_evaluation(camera_id)
     if not stopped:
         raise HTTPException(status_code=400, detail="Stream is not running.")
     return {"message": f"Stream stopped for camera {camera_id}"}
@@ -195,7 +210,7 @@ def get_camera_detections(camera_id: str, limit: int = Query(default=50, ge=1, l
 
 @router.get("/{camera_id}/frame/annotated", response_class=Response)
 def get_camera_annotated_frame(camera_id: str):
-    """Return the latest frame with bounding-box overlays as JPEG."""
+    """Return the latest frame with bounding-box and zone overlays as JPEG."""
     frame_data = provider.get_latest_frame(camera_id)
     if not frame_data or frame_data.frame is None:
         raise HTTPException(
@@ -205,12 +220,14 @@ def get_camera_annotated_frame(camera_id: str):
 
     # Get detections from the latest processed frame
     detections = result_store.get_latest_detections(camera_id)
+    zones = zone_store.get_zones_for_camera(camera_id, enabled_only=True)
 
-    annotated = annotate_frame(frame_data.frame, detections)
+    annotated = annotate_frame(frame_data.frame, detections, zones=zones)
 
     encoded = encode_frame_to_jpeg(annotated)
     if not encoded:
         raise HTTPException(status_code=500, detail="Failed to encode annotated frame")
 
     return Response(content=encoded, media_type="image/jpeg")
+
 

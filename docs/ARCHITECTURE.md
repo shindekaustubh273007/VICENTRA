@@ -376,7 +376,206 @@ The implementation should define appropriate track lifecycle behavior, including
 
 ---
 
-# 7. Multi-Camera Principle
+# 7. Phase 4 — Virtual Fences, Zones & Intrusion Detection Architecture
+
+Phase 4 introduces virtual zones and security intrusion event detection on top of Phase 3 tracked objects.
+
+The data flow is:
+
+```text
+Phase 3 TrackedStore
+        │
+        ▼
+ZoneManager (Orchestrates per-camera ZoneEvaluationLoops)
+        │
+        ▼
+ZoneEvaluationLoop (Polls TrackedStore)
+        │
+        ▼
+Zone Geometry (Ray-Casting Algorithm for Point-in-Polygon)
+        │
+        ▼
+State Transition Logic (Outside ↔ Inside)
+        │
+        ├── State Change: False → True  => Emit ENTER (and INTRUSION if restricted)
+        └── State Change: True → False  => Emit EXIT
+        │
+        ▼
+EventStore (Bounded per-camera storage) & DB (SQLite persistence for zones)
+        │
+        ▼
+FastAPI Endpoints (/api/v1/zones, /api/v1/events) & Zone Overlays on Annotated Frames
+```
+
+### Component Responsibilities
+
+#### ZoneStore (`app/services/zone_store.py`)
+- Maintains thread-safe in-memory cache of configured zones per camera.
+- Loaded from SQLite database on startup via `ZoneManager.load_zones_from_db()`.
+
+#### ZoneGeometry (`app/services/zone_geometry.py`)
+- Implements Ray-Casting algorithm (`point_in_polygon`) for point-in-polygon checks.
+- Computes bottom-center `((x1 + x2) / 2.0, y2)` evaluation point from object bounding box.
+
+#### ZoneEvaluationLoop (`app/services/zone_evaluation_loop.py`)
+- Polling daemon thread per camera running at `ZONE_EVALUATION_FPS`.
+- Evaluates object ground positions against camera-specific zones.
+- Maintains `zone_states` map `(zone_id, track_id) -> is_inside`.
+- Evaluates state transitions to deduplicate events: continuous presence inside a zone generates zero duplicate events.
+- Automatically cleans up state for expired tracks.
+
+#### EventStore (`app/services/event_store.py`)
+- Thread-safe bounded deque per camera (`ZONE_MAX_EVENTS_PER_CAMERA`) and globally.
+- Stores `ZoneEvent` objects (`event_id`, `event_type`, `camera_id`, `zone_id`, `zone_name`, `track_id`, `object_class`, `category`, `timestamp`, `position`).
+- Exposes `on_event` callback hook for dispatching newly added events to downstream subscribers.
+
+---
+
+# 8. Phase 5 — Real-Time Alerts & Event Engine Architecture
+
+Phase 5 introduces real-time event dispatching and WebSocket streaming to command dashboard clients.
+
+The data flow is:
+
+```text
+Phase 4 Security Event Created
+        │
+        ▼
+EventStore.add_event(event)
+        │
+        ├── In-Memory Storage (Bounded Deques)
+        │
+        ▼
+on_event Callback Hook
+        │
+        ▼
+EventDispatcher (`app/services/event_dispatcher.py`)
+        │ (asyncio.run_coroutine_threadsafe)
+        ▼
+WebSocket ConnectionManager (`app/services/ws_manager.py`)
+        │
+        ├── Client Broadcast Loop (Isolated send per client)
+        │
+        ▼
+Active WebSocket Clients (`/api/events/ws`)
+        │
+        ▼
+Command Dashboard UI (`static/index.html`)
+        │
+        ▼
+🚨 Live Alert Feed & Visual Notifications
+```
+
+### Component Responsibilities
+
+#### EventDispatcher (`app/services/event_dispatcher.py`)
+- In-process, thread-safe publish-subscribe engine.
+- Bridges synchronous daemon worker threads (`ZoneEvaluationLoop`) to async event subscribers.
+- Safely schedules coroutines on the running asyncio event loop via `asyncio.run_coroutine_threadsafe`.
+- Maintains thread-safe subscriber registry with exception isolation.
+
+#### WebSocket ConnectionManager (`app/services/ws_manager.py`)
+- Manages active client `WebSocket` connections (`set`).
+- Enforces maximum concurrent client limits (`WS_MAX_CLIENTS`).
+- Broadcasts standardized JSON security messages:
+  ```json
+  {
+    "type": "security_event",
+    "event": {
+      "event_id": "...",
+      "event_type": "INTRUSION",
+      "camera_id": "...",
+      "zone_id": "...",
+      "zone_name": "...",
+      "track_id": "...",
+      "object_class": "person",
+      "category": "person",
+      "timestamp": "...",
+      "position": {"x": 100.0, "y": 200.0}
+    }
+  }
+  ```
+- Error isolation: if a client connection fails or drops, it is pruned without blocking other clients or the surveillance pipeline.
+- Gracefully disconnects all clients on server shutdown (`disconnect_all`).
+
+#### WebSocket Endpoint (`app/api/ws.py`)
+- Route: `/api/events/ws` (and `/api/events/ws/`).
+- Accepts connections, registers with `ConnectionManager`, and listens for keepalives/pings.
+- Unregisters cleanly on disconnect or socket drop.
+
+#### Dashboard Client Integration (`static/index.html`)
+- Live Security Alerts panel with real-time connection status pill (`CONNECTED`, `CONNECTING`, `DISCONNECTED`).
+- Real-time DOM rendering of `INTRUSION` (red), `ENTER` (amber), and `EXIT` (gray) alerts.
+- Bounded DOM list (`MAX_DASHBOARD_ALERTS = 50`) prevents browser memory bloat.
+- Automatic reconnection with exponential backoff (1s → 2s → 4s → max 30s) handles backend restarts automatically.
+
+---
+
+# 9. Phase 6 — Windows EXE Packaging & Deployment Architecture
+
+Phase 6 packages the complete application into a distributable Windows executable using PyInstaller's one-directory mode.
+
+The packaging and runtime data flow is:
+
+```text
+Build Time:
+  vicentra.spec (PyInstaller config)
+         │
+         ▼
+  scripts/build_windows.ps1
+         │
+         ▼
+  dist/VICENTRA/
+         ├── VICENTRA.exe
+         └── _internal/
+              ├── static/          (bundled dashboard assets)
+              ├── yolov8n.pt       (bundled YOLO model)
+              └── (Python runtime, DLLs, packages)
+
+Runtime:
+  VICENTRA.exe
+         │
+         ▼
+  launcher.py → app.bootstrap.main()
+         │
+         ├── SingleInstanceLock (%LOCALAPPDATA%/VICENTRA/runtime/vicentra.lock)
+         │
+         ├── Port Check → find_available_port()
+         │
+         ├── Uvicorn Server (background thread)
+         │         │
+         │         ▼
+         │    app.main:app (FastAPI)
+         │
+         ├── Health Polling → wait_for_server_ready(/api/health)
+         │
+         └── Browser Launch → webbrowser.open()
+```
+
+### Component Responsibilities
+
+#### Centralized Paths (`app/core/paths.py`)
+- `get_base_dir()`: Returns `sys._MEIPASS` in frozen mode, repo root in development.
+- `get_resource_path(relative)`: Resolves read-only bundled resources (static assets, models).
+- `get_data_dir()`: Returns `%LOCALAPPDATA%/VICENTRA` for writable data (SQLite, logs, locks).
+- `get_database_url()`: SQLite URL pointing to writable data directory.
+- `get_model_path(name)`: Multi-strategy model resolution (direct → bundled → user models → fallback).
+
+#### Application Bootstrap (`app/bootstrap.py`)
+- Single-instance enforcement via PID-based file locks.
+- Port availability check with automatic fallback to next available port.
+- Programmatic Uvicorn server launch in a daemon thread.
+- HTTP health-check polling before browser launch.
+- Graceful shutdown on SIGINT/SIGTERM/Ctrl+C with lock cleanup.
+
+#### Build Tooling
+- `vicentra.spec`: PyInstaller configuration bundling `static/`, `yolov8n.pt`, and all hidden imports.
+- `scripts/build_windows.ps1`: Automated build script with environment check, clean, build, and verification.
+- `launcher.py`: Minimal PyInstaller entry point delegating to `app.bootstrap.main()`.
+
+---
+
+# 10. Multi-Camera Principle
 
 The architecture should support multiple cameras.
 
@@ -406,7 +605,7 @@ Phase 3 should not claim to provide cross-camera identity tracking unless that f
 
 ---
 
-# 8. Concurrency Principles
+# 11. Concurrency Principles
 
 The pipeline contains multiple processing stages.
 
@@ -440,7 +639,7 @@ The exact concurrency model should integrate with the existing implementation ra
 
 ---
 
-# 9. API and Visualization Boundaries
+# 12. API and Visualization Boundaries
 
 The backend may expose tracked objects and analytics through API endpoints.
 
@@ -477,9 +676,9 @@ Visualization must operate on copies or derived frames where appropriate and sho
 
 ---
 
-# 10. Future Phase Boundaries
+# 13. Phase Boundaries
 
-The architecture intentionally separates responsibilities.
+The architecture separates responsibilities by phase.
 
 ```text
 Phase 1
@@ -492,26 +691,20 @@ Phase 3
 Object tracking and analytics
 
 Phase 4
-ANPR, face recognition, and other specialized detection
+Virtual fences, zones & intrusion detection
 
 Phase 5
-Event generation, prioritization, persistence, and alerts
+Real-time alerts & event engine
 
 Phase 6
-Command dashboard
-
-Phase 7
-Integration, testing, and final demo
-
-Phase 8
-Windows packaging and deployment
+Windows EXE packaging & deployment
 ```
 
 A future phase should consume outputs from previous phases rather than reimplementing them.
 
 ---
 
-# 11. Core Architectural Rules
+# 14. Core Architectural Rules
 
 All future development should follow these principles:
 

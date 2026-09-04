@@ -13,6 +13,7 @@ import numpy as np
 
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.paths import get_model_path
 
 
 # ─── Data Structures ────────────────────────────────────────────────
@@ -122,7 +123,7 @@ class YOLODetector(BaseDetector):
         confidence_threshold: Optional[float] = None,
         iou_threshold: Optional[float] = None,
     ):
-        self.model_path = model_path or settings.AI_MODEL
+        self.model_path = get_model_path(model_path or settings.AI_MODEL)
         self.confidence_threshold = (
             confidence_threshold if confidence_threshold is not None
             else settings.AI_CONFIDENCE_THRESHOLD

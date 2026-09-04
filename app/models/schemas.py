@@ -123,3 +123,53 @@ class TrackingResponse(BaseModel):
     camera_id: str
     count: int
     tracks: list[TrackedObjectSchema]
+
+
+# ─── Phase 4: Virtual Zone & Event Schemas ──────────────────────────
+
+class ZoneBase(BaseModel):
+    name: str
+    zone_type: Literal["restricted", "monitoring"] = "restricted"
+    coordinates: list[PositionSchema] = Field(..., min_length=3)
+    target_categories: list[str] = Field(default_factory=lambda: ["all"])
+    enabled: bool = True
+
+class ZoneCreate(ZoneBase):
+    zone_id: Optional[str] = None
+
+class ZoneUpdate(BaseModel):
+    name: Optional[str] = None
+    zone_type: Optional[Literal["restricted", "monitoring"]] = None
+    coordinates: Optional[list[PositionSchema]] = Field(default=None, min_length=3)
+    target_categories: Optional[list[str]] = None
+    enabled: Optional[bool] = None
+
+class ZoneResponse(ZoneBase):
+    zone_id: str
+    camera_id: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ZoneListResponse(BaseModel):
+    camera_id: str
+    count: int
+    zones: list[ZoneResponse]
+
+class ZoneEventSchema(BaseModel):
+    event_id: str
+    event_type: Literal["ENTER", "EXIT", "INTRUSION"]
+    camera_id: str
+    zone_id: str
+    zone_name: str
+    track_id: str
+    object_class: str
+    category: str
+    timestamp: datetime
+    position: PositionSchema
+
+class EventListResponse(BaseModel):
+    count: int
+    events: list[ZoneEventSchema]
+

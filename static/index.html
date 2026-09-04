@@ -31,6 +31,29 @@
         input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
         .form-group { margin-bottom: 15px; }
         .full-width { grid-column: span 2; }
+        /* Phase 5: Real-Time Alerts styling */
+        .alerts-card { margin-top: 20px; }
+        .alerts-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .ws-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .ws-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .ws-connected { background: #e6f4ea; color: #137333; }
+        .ws-connected .ws-dot { background: #137333; }
+        .ws-disconnected { background: #fce8e6; color: #c5221f; }
+        .ws-disconnected .ws-dot { background: #c5221f; }
+        .ws-connecting { background: #fef7e0; color: #b06000; }
+        .ws-connecting .ws-dot { background: #b06000; }
+        .alert-list { max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .alert-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 6px; border-left: 5px solid; font-size: 13px; animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+        .alert-item.INTRUSION { background: #fdf2f2; border-left-color: #dc3545; color: #721c24; }
+        .alert-item.ENTER { background: #fffbf0; border-left-color: #ffc107; color: #856404; }
+        .alert-item.EXIT { background: #f4f6f8; border-left-color: #6c757d; color: #383d41; }
+        .alert-type-badge { font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 8px; }
+        .INTRUSION .alert-type-badge { background: #dc3545; color: white; }
+        .ENTER .alert-type-badge { background: #ffc107; color: #212529; }
+        .EXIT .alert-type-badge { background: #6c757d; color: white; }
+        .alert-meta { color: #666; font-size: 12px; margin-top: 2px; }
+        .empty-alerts { color: #888; font-style: italic; padding: 15px; text-align: center; }
     </style>
 </head>
 <body>
@@ -97,6 +120,25 @@
                     <tr><td colspan="7">Loading...</td></tr>
                 </tbody>
             </table>
+        </div>
+
+        <div class="card alerts-card">
+            <div class="alerts-header">
+                <div>
+                    <h3 style="margin: 0;">Live Security Alerts</h3>
+                    <small style="color: #666;">Real-time zone crossings and intrusions</small>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div id="wsStatusBadge" class="ws-status-badge ws-disconnected">
+                        <span class="ws-dot"></span>
+                        <span id="wsStatusText">DISCONNECTED</span>
+                    </div>
+                    <button class="btn-primary" style="background: #6c757d; font-size: 12px; padding: 4px 10px;" onclick="clearAlertsList()">Clear</button>
+                </div>
+            </div>
+            <div id="alertList" class="alert-list">
+                <div class="empty-alerts">No alerts yet. Waiting for live events...</div>
+            </div>
         </div>
     </div>
 
@@ -232,6 +274,159 @@
         // Poll every 2 seconds
         setInterval(fetchCameras, 2000);
         fetchCameras();
+
+        // --- Phase 5: Real-Time Alerts & WebSocket Client ---
+        const MAX_DASHBOARD_ALERTS = 50;
+        let ws = null;
+        let reconnectTimeout = null;
+        let reconnectDelay = 1000;
+        const maxReconnectDelay = 30000;
+        let alertsCount = 0;
+
+        function updateWsStatus(status) {
+            const badge = document.getElementById('wsStatusBadge');
+            const text = document.getElementById('wsStatusText');
+            if (!badge || !text) return;
+            badge.className = `ws-status-badge ws-${status.toLowerCase()}`;
+            text.textContent = status.toUpperCase();
+        }
+
+        function formatTime(isoString) {
+            try {
+                const d = new Date(isoString);
+                return d.toLocaleTimeString();
+            } catch (e) {
+                return isoString;
+            }
+        }
+
+        function renderAlert(event, prepend = true) {
+            const alertList = document.getElementById('alertList');
+            if (!alertList) return;
+            const emptyEl = alertList.querySelector('.empty-alerts');
+            if (emptyEl) {
+                emptyEl.remove();
+            }
+
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert-item ${event.event_type}`;
+            
+            let icon = 'ℹ️';
+            if (event.event_type === 'INTRUSION') icon = '🚨';
+            else if (event.event_type === 'ENTER') icon = '⚠️';
+
+            const posX = event.position ? event.position.x : '-';
+            const posY = event.position ? event.position.y : '-';
+
+            alertDiv.innerHTML = `
+                <div>
+                    <div>
+                        <span class="alert-type-badge">${icon} ${event.event_type}</span>
+                        <strong>${event.zone_name}</strong> — 
+                        <span>${event.object_class} (Track ${event.track_id})</span>
+                    </div>
+                    <div class="alert-meta">
+                        Camera: <strong>${event.camera_id}</strong> | 
+                        Position: (${posX}, ${posY})
+                    </div>
+                </div>
+                <div style="font-weight: 500; font-size: 12px; color: #555; white-space: nowrap;">
+                    ${formatTime(event.timestamp)}
+                </div>
+            `;
+
+            if (prepend) {
+                alertList.insertBefore(alertDiv, alertList.firstChild);
+            } else {
+                alertList.appendChild(alertDiv);
+            }
+            alertsCount++;
+
+            // Maintain bounded alert list in DOM
+            while (alertList.children.length > MAX_DASHBOARD_ALERTS) {
+                alertList.removeChild(alertList.lastChild);
+            }
+        }
+
+        function clearAlertsList() {
+            const alertList = document.getElementById('alertList');
+            if (!alertList) return;
+            alertList.innerHTML = '<div class="empty-alerts">No alerts yet. Waiting for live events...</div>';
+            alertsCount = 0;
+        }
+
+        async function loadRecentAlerts() {
+            try {
+                const res = await fetch(`${API_BASE}/events?limit=10`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.events && data.events.length > 0) {
+                        data.events.forEach(e => renderAlert(e, true));
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load recent events", e);
+            }
+        }
+
+        function connectWebSocket() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
+
+            updateWsStatus('connecting');
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}${API_BASE}/events/ws`;
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    console.log("[WS] Connected to real-time events stream");
+                    updateWsStatus('connected');
+                    reconnectDelay = 1000;
+                };
+
+                ws.onmessage = (messageEvent) => {
+                    try {
+                        const data = JSON.parse(messageEvent.data);
+                        if (data.type === 'security_event' && data.event) {
+                            renderAlert(data.event, true);
+                        }
+                    } catch (e) {
+                        console.error("[WS] Failed to parse event:", e);
+                    }
+                };
+
+                ws.onclose = (event) => {
+                    console.warn(`[WS] Disconnected (code: ${event.code}). Reconnecting in ${reconnectDelay}ms...`);
+                    updateWsStatus('disconnected');
+                    ws = null;
+                    scheduleReconnect();
+                };
+
+                ws.onerror = (err) => {
+                    console.error("[WS] Error occurred:", err);
+                    ws.close();
+                };
+            } catch (e) {
+                console.error("[WS] Connection failed:", e);
+                updateWsStatus('disconnected');
+                scheduleReconnect();
+            }
+        }
+
+        function scheduleReconnect() {
+            if (reconnectTimeout) clearTimeout(reconnectTimeout);
+            reconnectTimeout = setTimeout(() => {
+                reconnectDelay = Math.min(reconnectDelay * 1.5, maxReconnectDelay);
+                connectWebSocket();
+            }, reconnectDelay);
+        }
+
+        // Initialize WebSocket connection and load recent alerts
+        connectWebSocket();
+        loadRecentAlerts();
     </script>
 </body>
 </html>

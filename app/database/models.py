@@ -16,3 +16,19 @@ class Camera(Base):
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class Zone(Base):
+    __tablename__ = "zones"
+
+    zone_id = Column(String, primary_key=True, index=True)
+    camera_id = Column(String, index=True)
+    name = Column(String, index=True)
+    zone_type = Column(String, default="restricted")  # restricted, monitoring
+    coordinates_json = Column(String)                # JSON: [{"x": 10.0, "y": 20.0}, ...]
+    target_categories_json = Column(String)           # JSON: ["person", "vehicle"]
+    enabled = Column(Boolean, default=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+

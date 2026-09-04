@@ -12,7 +12,7 @@
 
 **Project:** VICENTRA / IBVAP — Intelligent Border Video Analytics Platform
 
-**Current Development Stage:** Phase 3 — Tracking & Analytics
+**Current Development Stage:** Phase 6 — Windows EXE Packaging & Deployment (Complete)
 
 **Overall Goal:** Build an AI-powered video analytics layer on top of ordinary IP CCTV infrastructure.
 
@@ -29,9 +29,11 @@ Virtual Fence
   ↓
 Intrusion Event
   ↓
-Alert
+Real-Time Alert
   ↓
 Command Dashboard
+  ↓
+Windows EXE Distribution
 ```
 
 The priority is to build one convincing end-to-end surveillance workflow rather than implementing every planned feature independently.
@@ -40,48 +42,62 @@ The priority is to build one convincing end-to-end surveillance workflow rather 
 
 # Phase Status
 
-| Phase   | Name                                | Status                                       |
-| ------- | ----------------------------------- | -------------------------------------------- |
-| Phase 1 | Video Ingestion & Stream Manager    | Completed                                    |
-| Phase 2 | AI Inference Engine                 | Completed / Repository Verification Required |
-| Phase 3 | Tracking & Analytics                | Completed                                    |
-| Phase 4 | ANPR / Face / Specialized Detection | Next / In Planning                           |
+| Phase   | Name                                | Status    |
+| ------- | ----------------------------------- | --------- |
+| Phase 1 | Video Ingestion & Stream Manager    | Completed |
+| Phase 2 | AI Inference Engine                 | Completed |
+| Phase 3 | Tracking & Analytics                | Completed |
+| Phase 4 | Virtual Fences, Zones & Intrusion   | Completed |
+| Phase 5 | Real-Time Alerts & Event Engine     | Completed |
+| Phase 6 | Windows EXE Packaging & Deployment  | Completed |
 
 ---
 
-# Completed Phase 3 — Object Tracking
+# Completed Phase 6 — Windows EXE Packaging & Deployment
 
-Phase 3 establishes the foundation for tracking objects over time by associating detections from Phase 2.
+Phase 6 packages the complete Phase 1–5 pipeline into a distributable Windows application that an operator can launch by double-clicking `VICENTRA.exe`.
 
 ## Implemented Responsibilities
 
-- **`TrackedObject`**: Schema representing objects over time, retaining history and assigning a `track_id`.
-- **`ObjectTracker`**: A per-camera lightweight centroid-distance based association algorithm.
-- **`TrackingLoop`**: A daemon thread that polls `ResultStore` to fetch the latest detections without blocking upstream layers.
-- **`TrackedStore`**: A thread-safe bounded store for the latest tracked objects.
-- **`TrackingManager`**: Orchestrates `TrackingLoop`s, tying their lifecycle to the FastAPI app.
-- **API**: Exposed `GET /api/v1/tracking/{camera_id}` for clients.
+- **Centralized Path Resolution (`app/core/paths.py`)**: Separates read-only bundled resources (`sys._MEIPASS` / `get_resource_path()`) from writable runtime data (`%LOCALAPPDATA%/VICENTRA` / `get_data_dir()`). Provides `get_database_url()` and `get_model_path()` for consistent resolution in both development and packaged environments.
+- **Application Bootstrap (`app/bootstrap.py`)**: Manages the complete launch lifecycle — single-instance enforcement via PID-based file locks, port availability check with fallback, programmatic Uvicorn server launch in a background thread, HTTP health-check readiness polling, automatic default browser launch, and graceful shutdown on SIGINT/SIGTERM.
+- **PyInstaller Entry Point (`launcher.py`)**: Minimal launcher script that delegates to `app.bootstrap.main()`.
+- **PyInstaller Configuration (`vicentra.spec`)**: One-directory distribution bundling `static/` assets, `yolov8n.pt` model, Ultralytics package data, and all hidden imports for FastAPI/Uvicorn/PyTorch/OpenCV.
+- **Build Automation (`scripts/build_windows.ps1`)**: Reproducible build script with environment check, clean, PyInstaller invocation, and distribution verification (executable + static assets + model in `_internal/`).
+- **Updated Core Services**: `config.py`, `logging.py`, `main.py`, and `detector.py` all use centralized path resolution for seamless operation in packaged mode.
+- **Automated Tests (`tests/test_packaging.py`)**: 7 tests covering resource path resolution (dev + frozen modes), data directory creation, database URL generation, model path resolution, single-instance lock, and port helpers.
 
-## Explicitly Outside Phase 3
+## Distribution Layout
 
-- **Virtual Fencing & Zone Intrusion**: Deferred to Phase 4/5 Event Engine.
-- **Cross-Camera Tracking**: Deferred. Tracks are isolated per camera.
+```text
+dist/VICENTRA/
+├── VICENTRA.exe           (Application executable)
+└── _internal/
+    ├── static/            (Dashboard HTML/CSS/JS)
+    ├── yolov8n.pt         (YOLO model weights)
+    └── (Python runtime, DLLs, packages)
+
+%LOCALAPPDATA%/VICENTRA/   (Created at runtime)
+├── data/ibvap.db          (SQLite database)
+├── logs/                  (Application logs)
+├── runtime/vicentra.lock  (Single-instance lock)
+└── models/                (User-provided models)
+```
 
 ---
 
-# Immediate Next Phase — Phase 4
+# Completed Phase 5 — Real-Time Alerts & Event Engine
 
-## Phase Name
+Phase 5 implements real-time security event delivery from Phase 4 to connected dashboard clients via WebSockets, eliminating polling.
 
-**Specialized Detection (ANPR / Face) & Event/Virtual Fence Engine**
+## Implemented Responsibilities
 
-## Primary Objective
-
-Now that objects are tracked with persistence, the system should allow users to draw virtual zones (fences) and trigger events when tracked objects enter or cross them. Additionally, Phase 4 should explore extending detection models for License Plates (ANPR) or Faces where applicable.
-
-## Recommended Next Action
-
-The next step is to design the Event Engine that consumes `TrackedStore` or `TrackingLoop` outputs, checks for zone intersections using the position history, and emits `IntrusionEvent`s.
+- **`EventDispatcher` (`app/services/event_dispatcher.py`)**: Thread-safe in-process dispatcher bridging worker threads to async subscribers via `asyncio.run_coroutine_threadsafe`.
+- **`ConnectionManager` (`app/services/ws_manager.py`)**: Manages active WebSocket connections with client limit enforcement (`WS_MAX_CLIENTS`), error isolation, and broadcast pruning.
+- **WebSocket Endpoint (`app/api/ws.py`)**: Mounted at `/api/events/ws` for real-time push of security events.
+- **`EventStore.on_event` Hook (`app/services/event_store.py`)**: Lightweight non-blocking callback hook bridging event creation in `add_event()` to the dispatcher.
+- **Dashboard Live Alerts (`static/index.html`)**: Real-time alerts card with connection status badge (`CONNECTED`, `CONNECTING`, `DISCONNECTED`), visual styling for `INTRUSION`, `ENTER`, and `EXIT`, bounded DOM history (`50` items), and automatic reconnection with exponential backoff.
+- **Automated Test Suite (`tests/test_websocket.py`)**: 10 unit and end-to-end integration tests covering dispatcher, schema, error isolation, single & multiple clients, client limits, and E2E event creation to WebSocket push.
 
 ---
 
@@ -100,7 +116,8 @@ The following decisions should be preserved unless the team explicitly revises t
 - Raw image data should not be placed inside detection JSON.
 - Configuration should avoid unnecessary hardcoded values.
 - The preferred final demo is a complete detection → tracking → intrusion → alert → dashboard story.
-- Windows `.exe` packaging is a late-stage deployment concern after the system is integrated and working.
+- Read-only bundled resources are separated from writable runtime data via `app/core/paths.py`.
+- Windows `.exe` packaging uses PyInstaller one-directory mode with `%LOCALAPPDATA%/VICENTRA` for writable data.
 
 ---
 
