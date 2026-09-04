@@ -15,40 +15,43 @@ export function Dashboard({ cameras, healthMap, globalHealth, events, onStart, o
       {/* Top Telemetry Metric Bar */}
       <section className="metrics-row">
         <MetricCard
-          title="Active Streams"
+          title="Surveillance Feeds"
           value={`${activeStreamsCount} / ${totalStreamsCount}`}
-          subtitle="Online CCTV feeds"
-          icon="📹"
+          subtitle="Synchronized live video mesh"
+          icon="videocam"
           variant="primary"
         />
         <MetricCard
-          title="Intrusion Alerts"
-          value={intrusionCount}
-          subtitle="Restricted zone triggers"
-          icon="🚨"
+          title="Perimeter Threat Status"
+          value={intrusionCount > 0 ? `${intrusionCount} breach detected` : 'Perimeter secure'}
+          subtitle={intrusionCount > 0 ? 'Restricted zone intrusion' : 'Boundary perimeter intact'}
+          icon="warning"
           variant={intrusionCount > 0 ? 'danger' : 'success'}
         />
         <MetricCard
-          title="Recent Events"
+          title="Tracked Target Events"
           value={events.length}
-          subtitle="Live session total"
-          icon="⚡"
+          subtitle="Real-time telemetry queue"
+          icon="radar"
         />
         <MetricCard
-          title="System Engine"
-          value={globalHealth?.status || 'OFFLINE'}
-          subtitle="Inference & Analytics"
-          icon="⚙️"
+          title="Edge Neural Pipeline"
+          value={globalHealth?.status === 'UP' ? 'Online' : 'Offline'}
+          subtitle="Inference &amp; Object Tracker"
+          icon="memory"
           variant={globalHealth?.status === 'UP' ? 'success' : 'danger'}
         />
       </section>
 
-      {/* Main Content Area: Feeds + Alert Feed */}
+      {/* Main Content Area: Hero Feeds + Live Alert Triage */}
       <div className="dashboard-main">
         <section className="feeds-section">
           <div className="section-header">
-            <h2>Live Surveillance Feeds</h2>
-            <span className="live-indicator">● LIVE ANNOTATED</span>
+            <h2>
+              <span className="material-symbols-outlined text-sm">grid_view</span>
+              Surveillance Grid Matrix
+            </h2>
+            <span className="live-indicator">● Live annotated</span>
           </div>
 
           <CameraGrid
@@ -70,9 +73,9 @@ export function Dashboard({ cameras, healthMap, globalHealth, events, onStart, o
             <div className="modal-header">
               <div>
                 <h3>{activeModal.cam.name}</h3>
-                <span className="modal-sub">ID: {activeModal.cam.camera_id} — {activeModal.cam.location}</span>
+                <span className="modal-sub">ID: {activeModal.cam.camera_id} • Location: {activeModal.cam.location}</span>
               </div>
-              <button className="btn-close" onClick={() => setActiveModal(null)}>✕</button>
+              <button className="btn-close" onClick={() => setActiveModal(null)} title="Close Viewport">✕</button>
             </div>
             <div className="modal-body">
               <img

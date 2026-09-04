@@ -11,10 +11,12 @@ export function Navbar({ wsStatus, globalHealth }) {
     <header className="navbar">
       <div className="navbar-left">
         <div className="navbar-brand">
-          <span className="brand-logo">🛡️</span>
+          <div className="brand-icon-box">
+            <span className="material-symbols-outlined">shield</span>
+          </div>
           <div className="brand-text">
-            <span className="brand-title">VICENTRA</span>
-            <span className="brand-subtitle">IBVAP Command Center</span>
+            <span className="brand-title">Vicentra</span>
+            <span className="brand-tag">Ibvap Core</span>
           </div>
         </div>
 
@@ -26,7 +28,7 @@ export function Navbar({ wsStatus, globalHealth }) {
             Cameras
           </NavLink>
           <NavLink to="/zones" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-            Zones
+            Virtual Zones
           </NavLink>
           <NavLink to="/events" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             Incident Log
@@ -37,8 +39,8 @@ export function Navbar({ wsStatus, globalHealth }) {
       <div className="navbar-right">
         <div className="system-pill" title="Backend Server Status">
           <span className={`status-indicator ${isServerUp ? 'status-up' : 'status-down'}`} />
-          <span>SYS: {isServerUp ? 'ONLINE' : 'OFFLINE'}</span>
-          <span className="stream-count">({activeStreams}/{totalStreams} Active)</span>
+          <span>System: {isServerUp ? 'Online' : 'Offline'}</span>
+          <span className="stream-count">({activeStreams}/{totalStreams} streams)</span>
         </div>
 
         <ConnectionBadge status={wsStatus} />

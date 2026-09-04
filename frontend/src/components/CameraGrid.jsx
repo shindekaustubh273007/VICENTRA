@@ -6,9 +6,9 @@ export function CameraGrid({ cameras, healthMap, onStart, onStop, onExpand }) {
     return (
       <div className="empty-grid">
         <div className="empty-grid-card">
-          <span className="empty-icon">📹</span>
-          <h3>No Cameras Registered</h3>
-          <p>Add an RTSP, Webcam, or Video stream in the Cameras section to begin monitoring.</p>
+          <span className="material-symbols-outlined empty-icon">videocam_off</span>
+          <h3>No Surveillance Feeds Configured</h3>
+          <p>Register an RTSP, USB Webcam, or Video stream in the Cameras console to initiate real-time boundary surveillance.</p>
         </div>
       </div>
     );

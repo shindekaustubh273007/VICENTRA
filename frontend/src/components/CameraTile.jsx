@@ -4,15 +4,12 @@ import { api } from '../services/api';
 export function CameraTile({ camera, health, onStart, onStop, onExpand }) {
   const [frameUrl, setFrameUrl] = useState('');
   const [hasFrameError, setHasFrameError] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const intervalRef = useRef(null);
 
   const isOnline = health?.status === 'ONLINE';
 
   useEffect(() => {
     if (!isOnline) {
-      setFrameUrl('');
-      setHasFrameError(false);
       return;
     }
 
@@ -34,22 +31,28 @@ export function CameraTile({ camera, health, onStart, onStop, onExpand }) {
   const fps = health?.current_fps ?? 0;
   const targetFps = camera.target_fps || 5;
   const resolution = health?.resolution || '--';
+  const formattedStatus = status ? status.charAt(0).toUpperCase() + status.slice(1).toLowerCase() : '';
+  const sourceType = camera.source_type ? camera.source_type.charAt(0).toUpperCase() + camera.source_type.slice(1).toLowerCase() : '';
 
   return (
-    <div
-      className={`camera-tile ${isOnline ? 'tile-online' : 'tile-offline'}`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
+    <div className={`camera-tile ${isOnline ? 'tile-online' : 'tile-offline'}`}>
+      {/* Tactical 4-Corner Targeting Reticles [ + ] */}
+      <span className="tile-corner-tr" />
+      <span className="tile-corner-bl" />
+
       <div className="tile-header">
         <div className="tile-title-group">
           <span className="camera-id">{camera.camera_id}</span>
           <span className="camera-name">{camera.name}</span>
         </div>
-        <span className={`status-pill status-${status}`}>{status}</span>
+        <span className={`status-pill status-${status}`}>{formattedStatus}</span>
       </div>
 
-      <div className="tile-viewport" onClick={() => isOnline && onExpand?.(camera, frameUrl)}>
+      <div
+        className="tile-viewport"
+        onClick={() => isOnline && onExpand?.(camera, frameUrl)}
+        title={isOnline ? 'Click to inspect / enlarge feed' : undefined}
+      >
         {isOnline && !hasFrameError ? (
           <img
             src={frameUrl}
@@ -59,34 +62,36 @@ export function CameraTile({ camera, health, onStart, onStop, onExpand }) {
           />
         ) : (
           <div className="viewport-placeholder">
-            <span className="placeholder-icon">{status === 'ERROR' ? '⚠️' : '📷'}</span>
+            <span className="material-symbols-outlined placeholder-icon">
+              {status === 'ERROR' ? 'warning' : 'videocam_off'}
+            </span>
             <span className="placeholder-text">
               {isOnline && hasFrameError
-                ? 'Frame unavailable'
+                ? 'Signal Dropped'
                 : status === 'STOPPED'
-                ? 'Stream Stopped'
+                ? 'Stream Standby'
                 : status === 'DISABLED'
-                ? 'Camera Disabled'
-                : 'Connecting to Video Feed...'}
+                ? 'Sensor Disabled'
+                : 'Acquiring Video Link...'}
             </span>
           </div>
         )}
 
-        {/* Overlaid metadata bar */}
+        {/* Overlaid tactical metadata bar */}
         <div className="tile-meta-overlay">
-          <span>{fps} / {targetFps} FPS</span>
-          <span>{resolution}</span>
+          <span>{fps.toFixed ? fps.toFixed(1) : fps} / {targetFps} fps</span>
+          <span>{resolution !== '--' ? `${resolution} • ` : ''}{sourceType}</span>
         </div>
       </div>
 
       <div className="tile-actions">
         {isOnline ? (
           <button className="btn-tile btn-danger" onClick={() => onStop?.(camera.camera_id)}>
-            Stop
+            Stop Feed
           </button>
         ) : (
           <button className="btn-tile btn-success" onClick={() => onStart?.(camera.camera_id)}>
-            Start
+            Start Feed
           </button>
         )}
         <button
@@ -94,7 +99,7 @@ export function CameraTile({ camera, health, onStart, onStop, onExpand }) {
           onClick={() => onExpand?.(camera, frameUrl)}
           disabled={!isOnline}
         >
-          Expand
+          Inspect
         </button>
       </div>
     </div>

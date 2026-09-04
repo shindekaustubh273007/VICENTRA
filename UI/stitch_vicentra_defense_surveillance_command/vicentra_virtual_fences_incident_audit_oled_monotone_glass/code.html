@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VICENTRA IBVAP — Virtual Zones &amp; Incident Audit Log</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "app-bg": "#060608",
+            "panel-bg": "rgba(18, 18, 22, 0.72)",
+            "panel-bg-solid": "#141417",
+            "surface-low": "rgba(14, 14, 17, 0.75)",
+            "surface-subtle": "rgba(255, 255, 255, 0.04)",
+            "surface-hover": "rgba(255, 255, 255, 0.08)",
+            "tactical-border": "rgba(255, 255, 255, 0.08)",
+            "tactical-border-light": "rgba(255, 255, 255, 0.12)",
+            "primary-blue": "#3b82f6",
+            "primary-blue-hover": "#2563eb",
+            "accent-violet": "#d4d4d8",
+            "accent-secondary": "#222227",
+            "alert-red": "#dc4c4c",
+            "alert-red-bg": "rgba(220, 76, 76, 0.14)",
+            "alert-amber": "#f59e0b",
+            "alert-amber-bg": "rgba(245, 158, 11, 0.14)",
+            "status-green": "#10b981",
+            "status-green-bg": "rgba(16, 185, 129, 0.14)",
+            "text-primary": "#f4f4f5",
+            "text-secondary": "#d4d4d8",
+            "text-muted": "#8a8a90"
+          },
+          fontFamily: {
+            "mono": ["JetBrains Mono", "monospace"],
+            "sans": ["Inter", "sans-serif"]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    .hud-subtle-grid {
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+    .glass-card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 100%), rgba(18, 18, 22, 0.72);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.07);
+    }
+    .glass-nav {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 100%), rgba(10, 10, 13, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.65), 0 1px 0 0 rgba(255, 255, 255, 0.06);
+    }
+</style>
+</head>
+<body class="bg-app-bg text-text-primary font-sans antialiased selection:bg-white/20 selection:text-white min-h-screen flex flex-col">
+<!-- ================= TOP NAV BAR ================= -->
+<header class="h-14 px-6 glass-nav border-b border-tactical-border fixed top-0 left-0 right-0 z-50 flex justify-between items-center">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-text-secondary text-lg" style="font-variation-settings: 'FILL' 1;">shield</span>
+<span class="text-sm font-semibold tracking-wider text-text-primary uppercase font-mono">VICENTRA</span>
+<span class="text-[0.6875rem] font-mono px-1.5 py-0.5 bg-surface-low border border-tactical-border text-text-secondary rounded-lg">IBVAP CORE</span>
+</div>
+<!-- Nav items -->
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-text-muted text-xs font-mono hover:text-text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-text-muted text-xs font-mono hover:text-text-primary transition-colors" href="#">Cameras</a>
+<a class="border-b-2 border-white text-text-primary text-xs font-mono font-medium pb-4 pt-4 inline-block shadow-[0_2px_8px_rgba(255,255,255,0.2)]" href="#">Virtual Zones</a>
+<a class="text-text-muted text-xs font-mono hover:text-text-primary transition-colors" href="#">Incident Log</a>
+</nav>
+</div>
+<div class="flex items-center gap-3.5">
+<div class="flex items-center gap-2 text-text-secondary bg-surface-low px-2.5 py-1 border border-tactical-border rounded-lg">
+<span class="w-1.5 h-1.5 rounded-full bg-status-green"></span>
+<span class="text-[0.6875rem] font-mono text-text-secondary">SYS ONLINE</span>
+</div>
+<div class="hidden sm:flex items-center gap-2 text-text-secondary bg-surface-low px-2.5 py-1 border border-tactical-border rounded-lg">
+<span class="w-1.5 h-1.5 rounded-full bg-[#38bdf8]"></span>
+<span class="text-[0.6875rem] font-mono text-text-secondary">LIVE FEED CONNECTED</span>
+</div>
+<div class="flex items-center gap-2 border-l border-tactical-border pl-3.5 text-text-secondary">
+<button class="p-1 hover:text-white transition-colors" title="Video Feeds">
+<span class="material-symbols-outlined text-lg">videocam</span>
+</button>
+<button class="p-1 hover:text-white transition-colors" title="Sensors">
+<span class="material-symbols-outlined text-lg">sensors</span>
+</button>
+</div>
+</div>
+</header>
+<!-- ================= MAIN CONTENT ================= -->
+<main class="mt-14 max-w-[1600px] w-full mx-auto px-6 py-6 flex flex-col gap-5">
+<!-- PAGE HEADER & PRIMARY ACTION -->
+<div class="flex flex-wrap justify-between items-center gap-4 border-b border-tactical-border pb-4">
+<div>
+<div class="flex items-center gap-2 text-[0.6875rem] font-mono text-text-muted mb-1">
+<span class="text-text-muted">TACTICAL SPATIAL ENGINE</span>
+<span class="text-tactical-border">/</span>
+<span class="text-text-muted">PERIMETER DEFENSE</span>
+</div>
+<h1 class="text-xl font-semibold text-text-primary tracking-tight">
+        Virtual Fences &amp; Intrusion Log
+      </h1>
+</div>
+<div class="flex items-center gap-3">
+<div class="hidden sm:flex items-center gap-2 text-xs font-mono text-text-muted bg-surface-low px-3 py-1.5 rounded-xl border border-tactical-border">
+<span class="text-text-muted">ACTIVE CAMERA:</span>
+<span class="text-text-secondary font-medium">CAM-01 (Perimeter North)</span>
+</div>
+<button class="flex items-center gap-2 bg-alert-red-bg border border-alert-red/50 text-alert-red px-3.5 py-1.5 rounded-xl text-xs font-mono font-medium hover:bg-alert-red/20 transition-colors shadow-sm">
+<span class="material-symbols-outlined text-sm">shield_locked</span>
+<span>ARM ALL ZONES</span>
+</button>
+</div>
+</div>
+<!-- ================= HERO SPATIAL VIEWPORT & ZONES SECTION ================= -->
+<section class="grid grid-cols-12 gap-5 items-start">
+<!-- PRIMARY HERO VIDEO VIEWPORT -->
+<div class="col-span-12 lg:col-span-8 xl:col-span-9 glass-card border border-tactical-border rounded-2xl overflow-hidden flex flex-col">
+<!-- Tactical Toolbar -->
+<div class="flex flex-wrap justify-between items-center gap-3 px-3.5 py-2.5 bg-surface-low border-b border-tactical-border">
+<div class="flex items-center gap-2">
+<button class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-mono inline-flex items-center gap-1.5 transition-colors shadow-sm border border-tactical-border-light">
+<span class="material-symbols-outlined text-sm text-text-secondary">polyline</span>
+<span>Draw Polygon Fence</span>
+</button>
+<div class="h-3.5 w-px bg-tactical-border mx-1"></div>
+<button class="px-2.5 py-1.5 rounded-xl bg-surface-subtle border border-tactical-border text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors text-xs font-mono inline-flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-alert-red"></span>
+<span>Restricted Zone</span>
+</button>
+<button class="px-2.5 py-1.5 rounded-xl bg-surface-subtle border border-tactical-border text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors text-xs font-mono inline-flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-alert-amber"></span>
+<span>Buffer Zone</span>
+</button>
+</div>
+<div class="flex items-center gap-2">
+<button class="text-text-muted hover:text-text-primary text-xs font-mono px-2 py-1 transition-colors inline-flex items-center gap-1">
+<span class="material-symbols-outlined text-sm text-text-muted">restart_alt</span>
+<span>Reset</span>
+</button>
+<button class="bg-surface-subtle border border-tactical-border text-text-primary hover:bg-surface-hover text-xs font-mono px-3 py-1.5 rounded-xl transition-colors inline-flex items-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined text-sm text-status-green">check_circle</span>
+<span>Save &amp; Arm</span>
+</button>
+</div>
+</div>
+<!-- Hero Viewport Canvas -->
+<div class="relative w-full h-[460px] bg-black overflow-hidden hud-subtle-grid select-none">
+<!-- Live Surveillance Stream -->
+<img class="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-luminosity filter contrast-105" data-alt="A dark tactical night-vision surveillance video view of a military perimeter razor wire fence with gravel roadway." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBRxEq4v0tHpU968q_ff_27-CSIgkripwZ48h0x4U5f-AYsqeJWtI4j19gDlHUlXwr3SF5U0EVNrDNzWVz_LiEDzMsjMPlMJCMiAOLwkCs3Qwz_FOFE7WtubFJK5QB3-Nk00AcqK255PrMoJbvE1ahZhuSCgyuEuoj1-rpAXXe-e2sq12K4otbQXbS6SaX3XHxtuONGWnVf3911aCEhYgH2BeY2gclVMJHZGBm6U9arUlfOZtFm0tc"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none"></div>
+<!-- Live Status Pill Top Left -->
+<div class="absolute top-3 left-3 z-20 flex items-center gap-2">
+<div class="bg-[#0b0b0e]/90 border border-tactical-border backdrop-blur-md px-2.5 py-1 rounded-lg text-[0.6875rem] font-mono text-text-secondary flex items-center gap-2 shadow-lg">
+<span class="w-1.5 h-1.5 rounded-full bg-alert-red"></span>
+<span class="font-medium text-text-primary">LIVE VIEW</span>
+<span class="text-tactical-border">|</span>
+<span class="text-text-muted">CAM-01 NORTH SECTOR</span>
+</div>
+</div>
+<!-- Interactive Polygonal Fence Overlay -->
+<svg class="absolute inset-0 w-full h-full z-10" preserveaspectratio="none" viewbox="0 0 1000 500">
+<!-- Zone 02: Logistics Buffer (Amber) -->
+<polygon fill="#f59e0b" fill-opacity="0.10" points="120,380 470,380 420,240 170,240" stroke="#f59e0b" stroke-dasharray="4,4" stroke-width="1.5"></polygon>
+<!-- Zone 01: Perimeter Fence (Red) -->
+<polygon fill="#dc4c4c" fill-opacity="0.14" points="460,420 940,420 880,180 540,180 500,260" stroke="#dc4c4c" stroke-dasharray="5,3" stroke-width="1.75"></polygon>
+<!-- Cyan Vertex Handles -->
+<g class="cursor-pointer">
+<!-- Zone 1 Handles -->
+<circle cx="460" cy="420" fill="#06b6d4" r="3.5" stroke="#060608" stroke-width="1.5"></circle>
+<circle cx="940" cy="420" fill="#06b6d4" r="3.5" stroke="#060608" stroke-width="1.5"></circle>
+<circle cx="880" cy="180" fill="#06b6d4" r="3.5" stroke="#060608" stroke-width="1.5"></circle>
+<circle cx="540" cy="180" fill="#06b6d4" r="3.5" stroke="#060608" stroke-width="1.5"></circle>
+<circle cx="500" cy="260" fill="#06b6d4" r="3.5" stroke="#060608" stroke-width="1.5"></circle>
+<!-- Zone 2 Handles -->
+<circle cx="120" cy="380" fill="#f59e0b" r="3" stroke="#060608" stroke-width="1.5"></circle>
+<circle cx="470" cy="380" fill="#f59e0b" r="3" stroke="#060608" stroke-width="1.5"></circle>
+<circle cx="420" cy="240" fill="#f59e0b" r="3" stroke="#060608" stroke-width="1.5"></circle>
+<circle cx="170" cy="240" fill="#f59e0b" r="3" stroke="#060608" stroke-width="1.5"></circle>
+</g>
+</svg>
+<!-- Zone Labels on Viewport -->
+<div class="absolute top-[248px] left-[180px] z-20 pointer-events-none bg-[#0e0e12]/95 border border-tactical-border text-text-primary px-2 py-0.5 rounded-lg text-[0.6875rem] font-mono backdrop-blur-md flex items-center gap-1.5 shadow-md">
+<span class="w-1.5 h-1.5 rounded-full bg-alert-amber"></span>
+<span>ZONE-02: BUFFER</span>
+</div>
+<div class="absolute top-[188px] left-[550px] z-20 pointer-events-none bg-[#0e0e12]/95 border border-tactical-border text-text-primary px-2 py-0.5 rounded-lg text-[0.6875rem] font-mono backdrop-blur-md flex items-center gap-1.5 shadow-md">
+<span class="w-1.5 h-1.5 rounded-full bg-alert-red"></span>
+<span>ZONE-01: RESTRICTED</span>
+</div>
+<!-- Target Detection Bounding Box -->
+<div class="absolute top-[280px] left-[510px] z-30 w-24 h-32 border border-alert-red bg-alert-red/10 flex flex-col justify-between p-1.5 rounded-md backdrop-blur-[2px]">
+<div class="flex items-center justify-between text-[0.625rem] font-mono bg-[#0a0a0d]/90 px-1 py-0.5 rounded border border-tactical-border">
+<span class="text-text-primary font-medium">#TRK-104</span>
+<span class="text-alert-red font-semibold">98%</span>
+</div>
+<div class="text-[0.625rem] font-mono bg-[#0a0a0d]/90 px-1 py-0.5 rounded text-text-secondary border border-tactical-border">
+            PERSON (INTRUDER)
+          </div>
+</div>
+</div>
+<!-- Viewport Bottom Status Bar -->
+<div class="flex justify-between items-center px-4 py-2 bg-surface-low border-t border-tactical-border text-[0.6875rem] font-mono text-text-secondary">
+<div class="flex items-center gap-3">
+<span class="flex items-center gap-1.5 text-text-secondary">
+<span class="w-1.5 h-1.5 rounded-full bg-status-green"></span>
+            DETECTION ACTIVE (PERSON &amp; VEHICLE)
+          </span>
+<span class="text-tactical-border">|</span>
+<span class="text-text-muted">VIRTUAL FENCE WIREFRAME v4.2</span>
+</div>
+<div class="text-text-muted">
+          GRID SNAP: 1.0m
+        </div>
+</div>
+</div>
+<!-- CONFIGURED ZONES PANEL -->
+<div class="col-span-12 lg:col-span-4 xl:col-span-3 flex flex-col gap-3">
+<div class="flex justify-between items-center pb-0.5">
+<h3 class="text-xs font-mono font-semibold tracking-wider text-text-secondary uppercase flex items-center gap-2">
+<span class="material-symbols-outlined text-text-muted text-base">view_in_ar</span>
+<span>CONFIGURED ZONES</span>
+</h3>
+<button class="text-xs font-mono text-text-muted hover:text-white flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-sm">add</span> Add Zone
+        </button>
+</div>
+<!-- Zone 01 Card -->
+<div class="glass-card border border-tactical-border rounded-2xl p-3.5 flex flex-col gap-2.5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="text-xs font-mono font-semibold text-text-primary">ZONE-01</span>
+<span class="text-[0.6875rem] font-mono text-text-muted">CAM-01</span>
+</div>
+<span class="inline-flex items-center gap-1.5 text-[0.6875rem] font-mono text-text-secondary bg-surface-low border border-tactical-border px-2 py-0.5 rounded-lg">
+<span class="w-1.5 h-1.5 rounded-full bg-status-green"></span> ARMED
+          </span>
+</div>
+<div>
+<h4 class="text-sm font-medium text-text-primary">Restricted Perimeter Fence</h4>
+<p class="text-xs text-text-muted mt-0.5 leading-relaxed">Razor wire boundary line on north gravel roadway.</p>
+</div>
+<div class="text-xs font-mono text-text-muted flex items-center justify-between pt-2 border-t border-tactical-border">
+<div>Target: <span class="text-text-secondary">Person, Vehicle</span></div>
+<div class="text-alert-red font-medium">Instant Alarm</div>
+</div>
+<div class="pt-1">
+<button class="w-full py-1.5 bg-surface-subtle border border-tactical-border hover:bg-surface-hover text-text-secondary hover:text-text-primary text-xs font-mono rounded-xl transition-colors flex items-center justify-center gap-1.5">
+<span class="material-symbols-outlined text-sm">edit</span>
+<span>Edit Boundary</span>
+</button>
+</div>
+</div>
+<!-- Zone 02 Card -->
+<div class="glass-card border border-tactical-border rounded-2xl p-3.5 flex flex-col gap-2.5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="text-xs font-mono font-semibold text-text-primary">ZONE-02</span>
+<span class="text-[0.6875rem] font-mono text-text-muted">CAM-01</span>
+</div>
+<span class="inline-flex items-center gap-1.5 text-[0.6875rem] font-mono text-text-secondary bg-surface-low border border-tactical-border px-2 py-0.5 rounded-lg">
+<span class="w-1.5 h-1.5 rounded-full bg-status-green"></span> ARMED
+          </span>
+</div>
+<div>
+<h4 class="text-sm font-medium text-text-primary">Logistics Buffer Zone</h4>
+<p class="text-xs text-text-muted mt-0.5 leading-relaxed">Vehicle staging apron &amp; loading dock threshold.</p>
+</div>
+<div class="text-xs font-mono text-text-muted flex items-center justify-between pt-2 border-t border-tactical-border">
+<div>Target: <span class="text-text-secondary">Vehicles Only</span></div>
+<div class="text-alert-amber font-medium">Dwell &gt; 30s</div>
+</div>
+<div class="pt-1">
+<button class="w-full py-1.5 bg-surface-subtle border border-tactical-border hover:bg-surface-hover text-text-secondary hover:text-text-primary text-xs font-mono rounded-xl transition-colors flex items-center justify-center gap-1.5">
+<span class="material-symbols-outlined text-sm">tune</span>
+<span>Configure</span>
+</button>
+</div>
+</div>
+<!-- Zone 03 Card -->
+<div class="glass-card border border-tactical-border rounded-2xl p-3.5 flex flex-col gap-2.5 opacity-75 hover:opacity-100 transition-opacity">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="text-xs font-mono font-semibold text-text-secondary">ZONE-03</span>
+<span class="text-[0.6875rem] font-mono text-text-muted">CAM-03</span>
+</div>
+<span class="inline-flex items-center gap-1.5 text-[0.6875rem] font-mono text-text-muted bg-surface-low border border-tactical-border px-2 py-0.5 rounded-lg">
+<span class="w-1.5 h-1.5 rounded-full bg-text-muted"></span> INACTIVE
+          </span>
+</div>
+<div>
+<h4 class="text-sm font-medium text-text-secondary">East Gate Treeline</h4>
+<p class="text-xs text-text-muted mt-0.5 leading-relaxed">Outer forest buffer and perimeter treeline fence.</p>
+</div>
+<div class="text-xs font-mono text-text-muted flex items-center justify-between pt-2 border-t border-tactical-border">
+<div>Target: <span class="text-text-secondary">All Targets</span></div>
+<div class="text-text-muted">Telemetry Only</div>
+</div>
+<div class="pt-1">
+<button class="w-full py-1.5 bg-surface-subtle border border-tactical-border hover:bg-surface-hover text-text-secondary hover:text-text-primary text-xs font-mono rounded-xl transition-colors flex items-center justify-center gap-1.5">
+<span class="material-symbols-outlined text-sm">power_settings_new</span>
+<span>Activate Zone</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- ================= FORENSIC INCIDENT AUDIT LOG & INVESTIGATION SPLIT ================= -->
+<section class="glass-card border border-tactical-border rounded-2xl p-5 flex flex-col gap-4">
+<!-- Section Header & Controls -->
+<div class="flex flex-wrap justify-between items-center gap-4 border-b border-tactical-border pb-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-text-secondary text-lg">history_edu</span>
+<h2 class="text-sm font-semibold tracking-wider text-text-primary uppercase font-mono">
+          FORENSIC INCIDENT &amp; INTRUSION LOG
+        </h2>
+<span class="bg-surface-low text-text-secondary border border-tactical-border font-mono text-[0.6875rem] px-2 py-0.5 rounded-lg">
+          84 AUDIT EVENTS
+        </span>
+</div>
+<div class="flex items-center gap-2.5">
+<div class="flex items-center gap-1 bg-surface-low border border-tactical-border px-2.5 py-1 rounded-xl text-xs font-mono">
+<span class="text-text-muted">FILTER:</span>
+<select class="bg-transparent border-none text-text-secondary focus:ring-0 py-0 pl-1 pr-4 text-xs font-mono cursor-pointer">
+<option class="bg-[#141417] text-text-primary" value="all">All Cameras</option>
+<option class="bg-[#141417] text-text-primary" selected="" value="cam01">CAM-01 (Perimeter North)</option>
+<option class="bg-[#141417] text-text-primary" value="cam02">CAM-02 (Fuel Depot)</option>
+</select>
+</div>
+<button class="flex items-center gap-1.5 bg-surface-subtle border border-tactical-border hover:bg-surface-hover text-text-secondary hover:text-text-primary text-xs font-mono px-3 py-1.5 rounded-xl transition-colors shadow-sm">
+<span class="material-symbols-outlined text-sm">download</span>
+<span>Export CSV</span>
+</button>
+</div>
+</div>
+<!-- Quick Severity Filter Tabs -->
+<div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-mono">
+<button class="px-3 py-1.5 rounded-xl bg-white/10 border border-tactical-border-light text-text-primary shadow-sm font-medium">
+        All Events (84)
+      </button>
+<button class="px-3 py-1.5 rounded-xl bg-surface-low border border-alert-red/40 text-text-secondary hover:text-text-primary flex items-center gap-1.5 transition-colors">
+<span class="w-1.5 h-1.5 rounded-full bg-alert-red"></span>
+<span>Intrusions (14)</span>
+</button>
+<button class="px-3 py-1.5 rounded-xl bg-surface-low border border-tactical-border text-text-secondary hover:text-text-primary flex items-center gap-1.5 transition-colors">
+<span class="w-1.5 h-1.5 rounded-full bg-alert-amber"></span>
+<span>Zone Enters (42)</span>
+</button>
+<button class="px-3 py-1.5 rounded-xl bg-surface-low border border-tactical-border text-text-muted hover:text-text-primary flex items-center gap-1.5 transition-colors">
+<span>Zone Exits (28)</span>
+</button>
+</div>
+<!-- Main Table & Preview Panel -->
+<div class="grid grid-cols-12 gap-5 items-start">
+<!-- High-Readability Forensic Table -->
+<div class="col-span-12 xl:col-span-8 overflow-x-auto border border-tactical-border rounded-xl bg-surface-low/60 backdrop-blur-md">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-low border-b border-tactical-border text-[0.6875rem] font-mono text-text-muted uppercase tracking-wider">
+<th class="py-2.5 px-3.5">Classification</th>
+<th class="py-2.5 px-3">Timestamp (UTC)</th>
+<th class="py-2.5 px-3">Camera &amp; Zone</th>
+<th class="py-2.5 px-3">Target</th>
+<th class="py-2.5 px-3">Dwell</th>
+<th class="py-2.5 px-3 text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-tactical-border text-xs font-mono">
+<!-- Row 1: Active Intrusion (Selected for investigation) -->
+<tr class="bg-white/[0.04] hover:bg-white/[0.08] transition-colors cursor-pointer">
+<td class="py-2.5 px-3.5 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 text-[0.6875rem] font-medium text-alert-red bg-alert-red-bg px-2 py-0.5 rounded-lg border border-alert-red/30">
+<span class="w-1.5 h-1.5 rounded-full bg-alert-red"></span>
+                  INTRUSION BREACH
+                </span>
+</td>
+<td class="py-2.5 px-3 text-text-secondary whitespace-nowrap">
+                2025-05-14 02:41:19
+              </td>
+<td class="py-2.5 px-3 whitespace-nowrap">
+<div class="text-text-primary font-medium">Zone-01 Perimeter</div>
+<div class="text-[0.6875rem] text-text-muted">CAM-01</div>
+</td>
+<td class="py-2.5 px-3 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 text-text-secondary">
+<span class="material-symbols-outlined text-sm text-text-muted">person</span>
+                  Person (#TRK-104)
+                </span>
+</td>
+<td class="py-2.5 px-3 text-alert-red font-medium whitespace-nowrap">
+                12.4s
+              </td>
+<td class="py-2.5 px-3 text-right whitespace-nowrap">
+<button class="bg-white/10 text-white font-medium px-2.5 py-1 rounded-lg text-[0.6875rem] inline-flex items-center gap-1 hover:bg-white/20 transition-colors shadow-sm border border-tactical-border-light">
+<span class="material-symbols-outlined text-xs text-text-secondary">search</span>
+<span>Investigating</span>
+</button>
+</td>
+</tr>
+<!-- Row 2: Zone Enter -->
+<tr class="hover:bg-white/[0.04] transition-colors cursor-pointer">
+<td class="py-2.5 px-3.5 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 text-[0.6875rem] text-alert-amber bg-alert-amber-bg px-2 py-0.5 rounded-lg border border-alert-amber/30">
+<span class="w-1.5 h-1.5 rounded-full bg-alert-amber"></span>
+                  ZONE ENTER
+                </span>
+</td>
+<td class="py-2.5 px-3 text-text-muted whitespace-nowrap">
+                2025-05-14 02:38:04
+              </td>
+<td class="py-2.5 px-3 whitespace-nowrap">
+<div class="text-text-secondary">Zone-02 Logistics</div>
+<div class="text-[0.6875rem] text-text-muted">CAM-01</div>
+</td>
+<td class="py-2.5 px-3 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 text-text-muted">
+<span class="material-symbols-outlined text-sm text-text-muted">local_shipping</span>
+                  Light Truck (#TRK-098)
+                </span>
+</td>
+<td class="py-2.5 px-3 text-alert-amber whitespace-nowrap">
+                28.9s
+              </td>
+<td class="py-2.5 px-3 text-right whitespace-nowrap">
+<button class="border border-tactical-border hover:bg-surface-subtle text-text-secondary px-2.5 py-1 rounded-lg text-[0.6875rem] inline-flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-xs">videocam</span>
+<span>Inspect</span>
+</button>
+</td>
+</tr>
+<!-- Row 3: Zone Exit -->
+<tr class="hover:bg-white/[0.04] transition-colors cursor-pointer">
+<td class="py-2.5 px-3.5 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 text-[0.6875rem] text-text-muted bg-surface-low px-2 py-0.5 rounded-lg border border-tactical-border">
+<span class="w-1.5 h-1.5 rounded-full bg-text-muted"></span>
+                  ZONE EXIT
+                </span>
+</td>
+<td class="py-2.5 px-3 text-text-muted whitespace-nowrap">
+                2025-05-14 02:15:52
+              </td>
+<td class="py-2.5 px-3 whitespace-nowrap">
+<div class="text-text-secondary">Zone-02 Logistics</div>
+<div class="text-[0.6875rem] text-text-muted">CAM-02</div>
+</td>
+<td class="py-2.5 px-3 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 text-text-muted">
+<span class="material-symbols-outlined text-sm text-text-muted">local_shipping</span>
+                  Patrol SUV (#TRK-084)
+                </span>
+</td>
+<td class="py-2.5 px-3 text-text-muted whitespace-nowrap">
+                04.2s
+              </td>
+<td class="py-2.5 px-3 text-right whitespace-nowrap">
+<button class="border border-tactical-border hover:bg-surface-subtle text-text-secondary px-2.5 py-1 rounded-lg text-[0.6875rem] inline-flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-xs">videocam</span>
+<span>Inspect</span>
+</button>
+</td>
+</tr>
+<!-- Row 4: Resolved Breach -->
+<tr class="hover:bg-white/[0.04] transition-colors cursor-pointer">
+<td class="py-2.5 px-3.5 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 text-[0.6875rem] text-text-muted bg-surface-low px-2 py-0.5 rounded-lg border border-tactical-border">
+<span class="w-1.5 h-1.5 rounded-full bg-text-muted"></span>
+                  RESOLVED BREACH
+                </span>
+</td>
+<td class="py-2.5 px-3 text-text-muted whitespace-nowrap">
+                2025-05-14 01:54:33
+              </td>
+<td class="py-2.5 px-3 whitespace-nowrap">
+<div class="text-text-secondary">Zone-01 Perimeter</div>
+<div class="text-[0.6875rem] text-text-muted">CAM-01</div>
+</td>
+<td class="py-2.5 px-3 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 text-text-muted">
+<span class="material-symbols-outlined text-sm text-text-muted">pets</span>
+                  Fauna (#TRK-067)
+                </span>
+</td>
+<td class="py-2.5 px-3 text-text-muted whitespace-nowrap">
+                02.1s
+              </td>
+<td class="py-2.5 px-3 text-right whitespace-nowrap">
+<span class="text-status-green text-[0.6875rem] inline-flex items-center gap-1 pr-1">
+<span class="material-symbols-outlined text-xs">verified</span>
+                  Cleared
+                </span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- EVENT INVESTIGATION PANEL -->
+<div class="col-span-12 xl:col-span-4 bg-surface-low/80 backdrop-blur-md border border-tactical-border rounded-xl p-4 flex flex-col gap-3 shadow-inner">
+<div class="flex items-center justify-between border-b border-tactical-border pb-2.5">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-alert-red text-base">warning</span>
+<h4 class="text-xs font-mono font-medium text-text-primary tracking-wider">EVENT INVESTIGATION</h4>
+</div>
+<span class="text-[0.625rem] font-mono text-text-secondary bg-surface-low border border-tactical-border px-2 py-0.5 rounded-lg">
+            EID-20250514-01
+          </span>
+</div>
+<!-- Snapshot Visual Clip -->
+<div class="relative w-full h-36 rounded-xl overflow-hidden border border-tactical-border bg-black">
+<img class="w-full h-full object-cover" data-alt="A cropped CCTV night-vision telemetry frame capturing a suspicious human silhouette penetrating a high-tech security razor wire fence line." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHeYHBzFp8BYh6tB9G_3eKvHciNsAmOqVViKBEJWkS-tAYTmE-_O077cTj712fzCwvuBWjEBA5iaA3JupEfoqsLT1WLUTppd3c1puIILMNDtMK9yOdPSKVIoulEu8wsydv51StPFh25E5fqZTD1YXzAbbov9eYmzperDiY9tt6mOvu41iVBUmcGtjy6jKD-LZfPpzM16IEd0VIr7RvhPfTrBt5wzq9YXO3Hu57mLImJyQCg8Y2X6A"/>
+<div class="absolute top-2 left-2 bg-[#09090b]/90 border border-tactical-border text-text-secondary text-[0.5625rem] font-mono px-1.5 py-0.5 rounded-md backdrop-blur-sm">
+            BREACH FRAME: 02:41:19.420
+          </div>
+<button class="absolute inset-0 bg-black/40 hover:bg-black/20 transition-all flex items-center justify-center group">
+<div class="w-9 h-9 rounded-full bg-[#0d0d10]/90 border border-tactical-border text-text-primary flex items-center justify-center group-hover:bg-white/20 group-hover:border-white/40 transition-colors shadow-lg">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</div>
+</button>
+</div>
+<!-- Investigation Metadata Grid -->
+<div class="grid grid-cols-2 gap-2 text-xs font-mono">
+<div class="bg-[#121215]/80 p-2.5 rounded-xl border border-tactical-border">
+<span class="text-[0.625rem] text-text-muted block uppercase">Confidence</span>
+<span class="text-text-primary font-medium text-sm">98.4% Match</span>
+</div>
+<div class="bg-[#121215]/80 p-2.5 rounded-xl border border-tactical-border">
+<span class="text-[0.625rem] text-text-muted block uppercase">Speed / Vector</span>
+<span class="text-text-primary font-medium text-sm">1.8 m/s North</span>
+</div>
+<div class="bg-[#121215]/80 p-2.5 rounded-xl border border-tactical-border col-span-2">
+<span class="text-[0.625rem] text-text-muted block uppercase">Breached Perimeter</span>
+<span class="text-text-secondary text-xs">CAM-01 / Zone-01 North Fence (Vertices #3 - #4)</span>
+</div>
+</div>
+<!-- Investigation Action Buttons -->
+<div class="flex items-center gap-2 pt-1">
+<button class="flex-1 py-1.5 bg-alert-red text-white font-medium text-xs font-mono rounded-xl hover:bg-alert-red/90 transition-colors shadow-sm">
+            Acknowledge Incident
+          </button>
+<button class="px-3 py-1.5 bg-surface-subtle border border-tactical-border hover:bg-surface-hover text-text-secondary hover:text-text-primary text-xs font-mono rounded-xl transition-colors">
+            Share Clip
+          </button>
+</div>
+</div>
+</div>
+<!-- Table Pagination Footer -->
+<div class="flex flex-wrap justify-between items-center gap-2 pt-2 border-t border-tactical-border text-xs font-mono text-text-secondary">
+<div>
+        Showing <span class="text-text-primary font-medium">1-4</span> of 84 recorded events
+      </div>
+<div class="flex items-center gap-1">
+<button class="px-2.5 py-1 border border-tactical-border bg-surface-low rounded-lg hover:text-text-primary transition-colors text-text-secondary">PREV</button>
+<span class="px-2.5 py-1 bg-white/10 text-white font-medium rounded-lg border border-tactical-border-light shadow-sm">1</span>
+<button class="px-2.5 py-1 border border-tactical-border bg-surface-low rounded-lg hover:text-text-primary transition-colors text-text-secondary">2</button>
+<button class="px-2.5 py-1 border border-tactical-border bg-surface-low rounded-lg hover:text-text-primary transition-colors text-text-secondary">3</button>
+<button class="px-2.5 py-1 border border-tactical-border bg-surface-low rounded-lg hover:text-text-primary transition-colors text-text-secondary">NEXT</button>
+</div>
+</div>
+</section>
+</main>
+<!-- ================= BOTTOM FOOTER ================= -->
+<footer class="mt-auto border-t border-tactical-border glass-nav py-2.5 px-6 text-xs font-mono text-text-muted flex flex-wrap justify-between items-center">
+<div class="flex items-center gap-6">
+<span class="text-text-secondary font-medium uppercase">VICENTRA COMMAND CENTER</span>
+<span class="hidden sm:inline text-tactical-border">|</span>
+<span class="hidden sm:inline text-text-muted">SPATIAL ENGINE: CALIBRATED</span>
+<span class="hidden md:inline text-tactical-border">|</span>
+<span class="hidden md:inline text-text-muted">RADAR TELEMETRY: 38 PINGS/s</span>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-text-secondary flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-status-green"></span>
+      AUDIT DB SYNCHRONIZED
+    </span>
+<span class="text-[0.6875rem] text-text-muted">UTC 2025-05-14 02:44:12</span>
+</div>
+</footer>
+</body></html>
