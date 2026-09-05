@@ -41,13 +41,13 @@ export const api = {
 
   // --- Cameras ---
   getCameras: () => request('/api/cameras'),
-  getCamera: (id) => request(`/api/cameras/${id}`),
+  getCamera: (id) => request(`/api/cameras/${encodeURIComponent(id)}`),
   createCamera: (data) => request('/api/cameras', { method: 'POST', body: JSON.stringify(data) }),
-  updateCamera: (id, data) => request(`/api/cameras/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteCamera: (id) => request(`/api/cameras/${id}`, { method: 'DELETE' }),
-  startCamera: (id) => request(`/api/cameras/${id}/start`, { method: 'POST' }),
-  stopCamera: (id) => request(`/api/cameras/${id}/stop`, { method: 'POST' }),
-  getCameraHealth: (id) => request(`/api/cameras/${id}/health`),
+  updateCamera: (id, data) => request(`/api/cameras/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteCamera: (id) => request(`/api/cameras/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  startCamera: (id) => request(`/api/cameras/${encodeURIComponent(id)}/start`, { method: 'POST' }),
+  stopCamera: (id) => request(`/api/cameras/${encodeURIComponent(id)}/stop`, { method: 'POST' }),
+  getCameraHealth: (id) => request(`/api/cameras/${encodeURIComponent(id)}/health`),
 
   // --- Video Frames ---
   getFrameUrl: (id, annotated = true) => {

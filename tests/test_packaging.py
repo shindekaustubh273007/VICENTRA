@@ -19,6 +19,7 @@ from app.core.paths import (
     get_model_path,
 )
 from app.bootstrap import SingleInstanceLock, is_port_in_use, find_available_port
+from app.utils.video import parse_source
 
 
 def test_resource_path_dev_mode():
@@ -96,9 +97,72 @@ def test_single_instance_lock():
         lock2.release()
 
 
+def test_single_instance_lock_stale_pid():
+    """Verify single instance lock detects dead/stale PID and re-acquires successfully."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        lock_file = Path(tmpdir) / "test_vicentra_stale.lock"
+        # Write a non-existent PID
+        lock_file.write_text("999999", encoding="utf-8")
+
+        lock = SingleInstanceLock(lock_file)
+        # Should detect stale PID and acquire
+        assert lock.acquire() is True
+        assert lock_file.read_text(encoding="utf-8").strip() == str(os.getpid())
+        lock.release()
+
+
 def test_port_helpers():
     """Verify port detection and search helpers."""
     # Test checking a free port
     free_port = find_available_port("127.0.0.1", 59123)
     assert isinstance(free_port, int)
     assert 59123 <= free_port <= 59133
+
+
+def test_spa_fallback_routes():
+    """Verify that client-side SPA routes like /zones and /cameras return index.html on direct refresh."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client = TestClient(app)
+    for route in ["/", "/zones", "/cameras", "/events"]:
+        resp = client.get(route)
+        assert resp.status_code == 200
+        assert "root" in resp.text
+
+
+def test_parse_source_relative_media_resolution():
+    """Verify parse_source resolves relative ./media/sample paths to real absolute paths."""
+    resolved = parse_source("./media/sample/test.mp4", "file")
+    assert Path(resolved).is_file()
+    assert resolved.endswith("test.mp4")
+
+    # Webcam returns integer 0
+    assert parse_source("0", "webcam") == 0
+
+    # RTSP URLs remain unchanged
+    rtsp = "rtsp://admin:pass@192.168.1.50:554/live"
+    assert parse_source(rtsp, "rtsp") == rtsp
+
+
+def test_parse_source_frozen_mode():
+    """Verify parse_source resolves bundled media in PyInstaller frozen mode."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        fake_meipass = Path(tmpdir)
+        media_dir = fake_meipass / "media" / "sample"
+        media_dir.mkdir(parents=True, exist_ok=True)
+        sample_video = media_dir / "custom_sample.mp4"
+        sample_video.write_bytes(b"mock_video_bytes")
+
+        with patch.object(sys, "frozen", True, create=True), \
+             patch.object(sys, "_MEIPASS", str(fake_meipass), create=True):
+            resolved = parse_source("./media/sample/custom_sample.mp4", "file")
+            assert Path(resolved).is_file()
+            assert resolved == str(sample_video.resolve())
+
+
+def test_vicentra_spec_bundles_media():
+    """Verify vicentra.spec contains media in datas collection."""
+    spec_content = Path("vicentra.spec").read_text(encoding="utf-8")
+    assert "('media', 'media')" in spec_content
+

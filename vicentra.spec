@@ -12,6 +12,7 @@ block_cipher = None
 # Collect Ultralytics and dependencies
 datas = [
     ('static', 'static'),
+    ('media', 'media'),
     ('yolov8n.pt', '.'),
 ]
 
@@ -58,6 +59,7 @@ hiddenimports = [
     'torch',
     'ultralytics',
     'numpy',
+    'psutil',
     
     # Internal project modules
     'app',

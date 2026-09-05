@@ -50,6 +50,12 @@ $ExePath = 'dist\VICENTRA\VICENTRA.exe'
 # PyInstaller v6+ places bundled datas inside _internal/ subdirectory
 $StaticPath = 'dist\VICENTRA\_internal\static'
 $ModelPath = 'dist\VICENTRA\_internal\yolov8n.pt'
+$MediaPath = 'dist\VICENTRA\_internal\media'
+
+# Mirror media directory to root distribution directory as well
+if (Test-Path 'media') {
+    Copy-Item -Recurse -Force 'media' 'dist\VICENTRA\media'
+}
 
 $AllValid = $true
 if (Test-Path $ExePath) {
@@ -70,6 +76,13 @@ if (Test-Path $ModelPath) {
     Write-Host "  [OK] Model weights bundled: $ModelPath" -ForegroundColor Green
 } else {
     Write-Host "  [FAIL] Missing $ModelPath" -ForegroundColor Red
+    $AllValid = $false
+}
+
+if (Test-Path $MediaPath) {
+    Write-Host "  [OK] Media samples bundled: $MediaPath" -ForegroundColor Green
+} else {
+    Write-Host "  [FAIL] Missing $MediaPath" -ForegroundColor Red
     $AllValid = $false
 }
 

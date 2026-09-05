@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 import { ZoneOverlay } from '../components/ZoneOverlay';
+import { ZoneDrawingCanvas } from '../components/ZoneDrawingCanvas';
 
 export function Zones({ cameras }) {
   const [selectedCameraId, setSelectedCameraId] = useState(cameras[0]?.camera_id || '');
   const [zones, setZones] = useState([]);
-  const [formOpen, setFormOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [frameUrl, setFrameUrl] = useState('');
 
-  // New zone form state
+  // Editor form state
   const [zoneName, setZoneName] = useState('');
   const [zoneType, setZoneType] = useState('restricted');
-  const [coordsInput, setCoordsInput] = useState('100,100; 500,100; 500,400; 100,400');
   const [targetCategories, setTargetCategories] = useState('all');
+  const [drawnCoordinates, setDrawnCoordinates] = useState([]);
   const [error, setError] = useState(null);
 
   const fetchZones = useCallback(async () => {
@@ -39,53 +40,62 @@ export function Zones({ cameras }) {
     }
   }, [fetchZones, selectedCameraId]);
 
-  const handleCreateZone = async (e) => {
-    e.preventDefault();
-    setError(null);
-
-    // Parse coordinates from string format: "x1,y1; x2,y2; ..."
-    const rawPoints = coordsInput
-      .split(';')
-      .map((p) => p.trim())
-      .filter(Boolean);
-
-    if (rawPoints.length < 3) {
-      setError('A polygon zone must have at least 3 vertices (separated by semicolons).');
-      return;
+  // ── Open / Close Editor ──────────────────────────────────────────
+  const openEditor = useCallback(() => {
+    if (!selectedCameraId && cameras.length > 0) {
+      setSelectedCameraId(cameras[0].camera_id);
     }
+    setZoneName('');
+    setZoneType('restricted');
+    setTargetCategories('all');
+    setError(null);
+    setEditorOpen(true);
+  }, [selectedCameraId, cameras]);
 
-    const coordinates = [];
-    for (const pt of rawPoints) {
-      const [xStr, yStr] = pt.split(',').map((s) => s.trim());
-      const x = parseFloat(xStr);
-      const y = parseFloat(yStr);
-      if (isNaN(x) || isNaN(y)) {
-        setError(`Invalid coordinate point: "${pt}". Use format "X,Y" e.g. "100,200".`);
+  const closeEditor = useCallback(() => {
+    setEditorOpen(false);
+    setDrawnCoordinates([]);
+    setError(null);
+  }, []);
+
+  // ── Submit zone from visual editor ───────────────────────────────
+  const handleSaveZone = useCallback(
+    async (e) => {
+      e.preventDefault();
+      setError(null);
+
+      if (!zoneName.trim()) {
+        setError('Zone name is required.');
         return;
       }
-      coordinates.push({ x, y });
-    }
 
-    const categories = targetCategories
-      .split(',')
-      .map((c) => c.trim())
-      .filter(Boolean);
+      if (drawnCoordinates.length < 3) {
+        setError('Draw a polygon with at least 3 vertices on the canvas.');
+        return;
+      }
 
-    try {
-      await api.createZone(selectedCameraId, {
-        name: zoneName,
-        zone_type: zoneType,
-        coordinates,
-        target_categories: categories.length ? categories : ['all'],
-        enabled: true,
-      });
-      setFormOpen(false);
-      setZoneName('');
-      fetchZones();
-    } catch (err) {
-      setError(err.message || 'Failed to create zone');
-    }
-  };
+      const coordinates = drawnCoordinates.map((p) => ({ x: p.x, y: p.y }));
+      const categories = targetCategories
+        .split(',')
+        .map((c) => c.trim())
+        .filter(Boolean);
+
+      try {
+        await api.createZone(selectedCameraId, {
+          name: zoneName,
+          zone_type: zoneType,
+          coordinates,
+          target_categories: categories.length ? categories : ['all'],
+          enabled: true,
+        });
+        closeEditor();
+        fetchZones();
+      } catch (err) {
+        setError(err.message || 'Failed to create zone');
+      }
+    },
+    [zoneName, zoneType, targetCategories, drawnCoordinates, selectedCameraId, closeEditor, fetchZones],
+  );
 
   const handleDeleteZone = async (zoneId) => {
     if (confirm(`Delete zone ${zoneId}?`)) {
@@ -97,6 +107,9 @@ export function Zones({ cameras }) {
       }
     }
   };
+
+  // Snapshot URL for the drawing canvas (unannotated raw frame)
+  const canvasImageUrl = selectedCameraId ? api.getFrameUrl(selectedCameraId, false) : '';
 
   return (
     <div className="page-container">
@@ -118,13 +131,13 @@ export function Zones({ cameras }) {
               </option>
             ))}
           </select>
-          <button className="btn-primary" onClick={() => setFormOpen(!formOpen)}>
-            {formOpen ? 'Cancel' : '+ Define Zone'}
+          <button className="btn-primary" onClick={openEditor}>
+            + Define Zone
           </button>
         </div>
       </div>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && !editorOpen && <div className="error-banner">{error}</div>}
 
       {/* Hero Spatial Viewport with Live SVG Zone Overlay */}
       <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
@@ -162,56 +175,111 @@ export function Zones({ cameras }) {
         </div>
       </div>
 
-      {/* Add Zone Form */}
-      {formOpen && (
-        <div className="card form-card">
-          <h3>Create Virtual Polygon Perimeter</h3>
-          <form onSubmit={handleCreateZone} className="form-grid">
-            <div className="form-group">
-              <label>Zone Designation Name</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Restricted North Gate"
-                value={zoneName}
-                onChange={(e) => setZoneName(e.target.value)}
+      {/* ═══════ Visual Zone Editor Modal ═══════ */}
+      {editorOpen && (
+        <div className="modal-backdrop zone-editor-modal" onClick={(e) => { if (e.target === e.currentTarget) closeEditor(); }}>
+          <div className="modal-content">
+            {/* Modal header */}
+            <div className="modal-header">
+              <div>
+                <h3>Define Virtual Zone — {selectedCameraId}</h3>
+                <span className="modal-sub">
+                  Draw polygon perimeter on the camera snapshot. Drag vertices to adjust.
+                </span>
+              </div>
+              <button className="btn-close" onClick={closeEditor} title="Cancel">
+                ✕
+              </button>
+            </div>
+
+            {/* Editor layout: canvas + sidebar */}
+            <div className="zone-editor-layout">
+              {/* Drawing Canvas */}
+              <ZoneDrawingCanvas
+                cameraId={selectedCameraId}
+                imageUrl={canvasImageUrl}
+                zoneType={zoneType}
+                onCoordinatesChange={setDrawnCoordinates}
               />
-            </div>
 
-            <div className="form-group">
-              <label>Security Level</label>
-              <select value={zoneType} onChange={(e) => setZoneType(e.target.value)}>
-                <option value="restricted">Restricted (Triggers Immediate INTRUSION Alarm)</option>
-                <option value="monitoring">Monitoring (Telemetry ENTER / EXIT Only)</option>
-              </select>
-            </div>
+              {/* Sidebar form */}
+              <div className="zone-editor-sidebar">
+                <h4>Zone Configuration</h4>
 
-            <div className="form-group full-width">
-              <label>Polygon Vertex Coordinates (X,Y separated by semicolons)</label>
-              <input
-                type="text"
-                required
-                placeholder="100,100; 500,100; 500,400; 100,400"
-                value={coordsInput}
-                onChange={(e) => setCoordsInput(e.target.value)}
-              />
-              <small className="help-text">Minimum 3 vertices required. Coordinates map to camera pixel grid (e.g. 1280x720).</small>
-            </div>
+                {error && <div className="error-banner">{error}</div>}
 
-            <div className="form-group full-width">
-              <label>Target Entity Filter (comma-separated)</label>
-              <input
-                type="text"
-                placeholder="all or person, vehicle, bicycle"
-                value={targetCategories}
-                onChange={(e) => setTargetCategories(e.target.value)}
-              />
-            </div>
+                <form onSubmit={handleSaveZone} style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+                  <div className="form-group">
+                    <label>Zone Designation Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Restricted North Gate"
+                      value={zoneName}
+                      onChange={(e) => setZoneName(e.target.value)}
+                    />
+                  </div>
 
-            <div className="form-group full-width form-actions" style={{ marginTop: '6px' }}>
-              <button type="submit" className="btn-primary">Save &amp; Arm Virtual Zone</button>
+                  <div className="form-group">
+                    <label>Security Level</label>
+                    <select value={zoneType} onChange={(e) => setZoneType(e.target.value)}>
+                      <option value="restricted">Restricted (INTRUSION Alarm)</option>
+                      <option value="monitoring">Monitoring (ENTER / EXIT)</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Target Entity Filter</label>
+                    <input
+                      type="text"
+                      placeholder="all or person, vehicle"
+                      value={targetCategories}
+                      onChange={(e) => setTargetCategories(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Live coordinate list */}
+                  <div className="form-group">
+                    <label>Polygon Vertices ({drawnCoordinates.length})</label>
+                    {drawnCoordinates.length > 0 ? (
+                      <div className="zone-coord-list">
+                        {drawnCoordinates.map((pt, i) => (
+                          <div key={i} className="zone-coord-item">
+                            <span>
+                              <span className="coord-index">V{i + 1}</span>
+                              <span className="coord-value">[{pt.x}, {pt.y}]</span>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '10px',
+                        color: 'var(--text-dim)',
+                      }}>
+                        Draw on the canvas to generate vertices
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="form-actions">
+                    <button
+                      type="submit"
+                      className="btn-primary"
+                      disabled={drawnCoordinates.length < 3}
+                      style={{ opacity: drawnCoordinates.length < 3 ? 0.5 : 1 }}
+                    >
+                      Save &amp; Arm Virtual Zone
+                    </button>
+                    <button type="button" className="btn-secondary" onClick={closeEditor}>
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-          </form>
+          </div>
         </div>
       )}
 

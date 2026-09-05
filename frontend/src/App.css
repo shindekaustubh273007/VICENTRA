@@ -1370,3 +1370,277 @@ input:focus, select:focus {
   font-size: 10px;
   color: var(--text-muted);
 }
+
+/* ════════════════ Zone Polygon Editor ════════════════ */
+
+/* Full-screen editor modal — wider than default modal for max drawing area */
+.zone-editor-modal .modal-content {
+  max-width: 1400px;
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.zone-editor-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Main canvas area */
+.zone-editor-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Toolbar above the canvas */
+.zone-editor-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  background: rgba(10, 10, 13, 0.95);
+  border-bottom: 1px solid var(--hairline-divider);
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.zone-editor-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Mode toggle buttons */
+.zone-mode-toggle {
+  background: var(--glass-surface-subtle);
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.zone-mode-toggle:hover {
+  color: #ffffff;
+  border-color: var(--glass-border-hover);
+}
+
+.zone-mode-toggle.active {
+  color: var(--status-cyan);
+  border-color: var(--status-cyan-border);
+  background: var(--status-cyan-bg);
+}
+
+/* Canvas container */
+.zone-editor-canvas-wrapper {
+  position: relative;
+  width: 100%;
+  background-color: #000000;
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+.zone-editor-canvas-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.zone-editor-canvas-wrapper svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Instruction overlay (freehand mode) */
+.zone-draw-instruction {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(8, 8, 10, 0.92);
+  border: 1px solid var(--glass-border);
+  padding: 6px 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  z-index: 10;
+  pointer-events: none;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.zone-draw-instruction .material-symbols-outlined {
+  font-size: 14px;
+  color: var(--status-cyan);
+}
+
+/* Live coordinate HUD */
+.zone-coord-hud {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(8, 8, 10, 0.92);
+  border: 1px solid var(--glass-border);
+  padding: 5px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--status-cyan);
+  z-index: 10;
+  pointer-events: none;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zone-coord-hud .coord-label {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+/* Vertex count badge */
+.zone-vertex-count {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(8, 8, 10, 0.92);
+  border: 1px solid var(--glass-border);
+  padding: 5px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Sidebar form panel */
+.zone-editor-sidebar {
+  width: 280px;
+  background: rgba(10, 10, 13, 0.95);
+  border-left: 1px solid var(--glass-border);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.zone-editor-sidebar h4 {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.75px;
+  color: #ffffff;
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hairline-divider);
+}
+
+.zone-editor-sidebar .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.zone-editor-sidebar .form-group label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.zone-editor-sidebar input,
+.zone-editor-sidebar select {
+  width: 100%;
+  padding: 7px 9px;
+  font-size: 11px;
+}
+
+.zone-editor-sidebar .form-actions {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline-divider);
+}
+
+/* Coordinate list in sidebar */
+.zone-coord-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.zone-coord-list::-webkit-scrollbar {
+  width: 3px;
+}
+.zone-coord-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.zone-coord-list::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+}
+
+.zone-coord-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 6px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.zone-coord-item .coord-index {
+  color: var(--text-dim);
+  margin-right: 6px;
+  min-width: 18px;
+}
+
+.zone-coord-item .coord-value {
+  color: var(--text-secondary);
+}
+
+/* Responsive: Stack sidebar below on narrow screens */
+@media (max-width: 900px) {
+  .zone-editor-layout {
+    flex-direction: column;
+  }
+  .zone-editor-sidebar {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--glass-border);
+    max-height: 240px;
+  }
+}

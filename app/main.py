@@ -96,7 +96,23 @@ app.include_router(ai_router, prefix=f"{settings.API_V1_STR}/ai", tags=["AI Engi
 app.include_router(tracking_router, prefix=f"{settings.API_V1_STR}/tracking", tags=["Tracking"])
 app.include_router(health.router, prefix=f"{settings.API_V1_STR}/health", tags=["Health"])
 
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import FileResponse, Response
+from starlette.types import Scope
+
+class SPAStaticFiles(StaticFiles):
+    """StaticFiles handler that falls back to index.html for SPA client-side routes on 404."""
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as ex:
+            if ex.status_code == 404:
+                index_path = os.path.join(self.directory, "index.html")
+                if os.path.exists(index_path):
+                    return FileResponse(index_path)
+            raise ex
+
 # Static Dashboard
 static_dir = get_resource_path("static")
 static_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
+app.mount("/", SPAStaticFiles(directory=str(static_dir), html=True), name="static")

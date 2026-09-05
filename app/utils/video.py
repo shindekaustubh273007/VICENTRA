@@ -1,6 +1,11 @@
+import os
+import sys
+from pathlib import Path
 import cv2
 import numpy as np
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List, Any, TYPE_CHECKING
+
+from app.core.paths import get_resource_path, get_base_dir, get_data_dir
 
 if TYPE_CHECKING:
     from app.services.detector import Detection
@@ -22,13 +27,53 @@ def encode_frame_to_jpeg(frame: np.ndarray, quality: int = 80) -> Optional[bytes
 def parse_source(source_url: str, source_type: str):
     """
     Converts source_url into appropriate format for OpenCV.
-    For webcams, '0' needs to be integer 0.
+    - For webcams: '0' becomes integer 0.
+    - For local files: resolves relative paths against CWD, bundled resources,
+      executable directory, base directory, and data directory.
+    - For network streams (rtsp/http): returns string as-is.
     """
     if source_type == "webcam":
         try:
             return int(source_url)
         except ValueError:
             return source_url
+
+    # Check if network stream
+    if isinstance(source_url, str):
+        url_lower = source_url.lower()
+        if url_lower.startswith(("rtsp://", "http://", "https://", "rtmp://")):
+            return source_url
+
+    # File path resolution
+    source_str = str(source_url)
+    direct_p = Path(source_str)
+    if direct_p.is_file():
+        return str(direct_p.resolve())
+
+    # Normalize relative paths (strip leading './', '.\\', '/', '\')
+    clean_path = source_str.lstrip(".\\").lstrip("./").lstrip("/").lstrip("\\")
+
+    # 1. Bundled resource directory (sys._MEIPASS in frozen mode, repo root in dev)
+    res_p = get_resource_path(clean_path)
+    if res_p.is_file():
+        return str(res_p.resolve())
+
+    # 2. Executable parent directory (dist/VICENTRA)
+    if getattr(sys, "frozen", False):
+        exe_p = Path(sys.executable).parent / clean_path
+        if exe_p.is_file():
+            return str(exe_p.resolve())
+
+    # 3. Base directory (repo root)
+    base_p = get_base_dir() / clean_path
+    if base_p.is_file():
+        return str(base_p.resolve())
+
+    # 4. Writable user data directory (%LOCALAPPDATA%/VICENTRA)
+    data_p = get_data_dir() / clean_path
+    if data_p.is_file():
+        return str(data_p.resolve())
+
     return source_url
 
 

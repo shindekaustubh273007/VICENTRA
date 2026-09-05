@@ -15,12 +15,31 @@ export function Cameras({ cameras, healthMap, onStart, onStop, onDelete, onCreat
     enabled: true,
   });
   const [formError, setFormError] = useState(null);
+  const [actionError, setActionError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const { tracks, detections } = useTracking(selectedCameraId, 2000);
 
   const onlineCount = cameras.filter((c) => healthMap[c.camera_id]?.status === 'ONLINE').length;
   const standbyCount = cameras.length - onlineCount;
+
+  const handleDelete = async (cameraId) => {
+    setActionError(null);
+    if (!confirm(`De-register camera stream ${cameraId}?`)) return;
+    setDeletingId(cameraId);
+    try {
+      await onDelete(cameraId);
+      if (selectedCameraId === cameraId) {
+        const remaining = cameras.filter((c) => c.camera_id !== cameraId);
+        setSelectedCameraId(remaining[0]?.camera_id || '');
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to delete camera.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,6 +48,7 @@ export function Cameras({ cameras, healthMap, onStart, onStop, onDelete, onCreat
     try {
       await onCreate({
         ...formData,
+        camera_id: formData.camera_id.trim(),
         target_fps: parseInt(formData.target_fps, 10),
         buffer_size: parseInt(formData.buffer_size, 10),
       });
@@ -163,6 +183,9 @@ export function Cameras({ cameras, healthMap, onStart, onStop, onDelete, onCreat
         </div>
       )}
 
+      {/* Action Error Banner */}
+      {actionError && <div className="error-banner" style={{ margin: '12px 0' }}>{actionError}</div>}
+
       {/* Camera Inventory Table */}
       <div className="card table-card">
         <h3 style={{ padding: '14px 18px 0 18px', border: 'none', margin: 0 }}>Stream Inventory &amp; Telemetry</h3>
@@ -223,13 +246,11 @@ export function Cameras({ cameras, healthMap, onStart, onStop, onDelete, onCreat
                       )}
                       <button
                         className="btn-small btn-secondary"
-                        onClick={() => {
-                          if (confirm(`De-register camera stream ${cam.camera_id}?`)) {
-                            onDelete(cam.camera_id);
-                          }
-                        }}
+                        disabled={deletingId === cam.camera_id}
+                        onClick={() => handleDelete(cam.camera_id)}
+                        style={{ opacity: deletingId === cam.camera_id ? 0.5 : 1, marginLeft: '6px' }}
                       >
-                        Delete
+                        {deletingId === cam.camera_id ? 'Deleting...' : 'Delete'}
                       </button>
                     </td>
                   </tr>

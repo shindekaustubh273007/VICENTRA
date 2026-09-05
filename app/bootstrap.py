@@ -67,14 +67,33 @@ class SingleInstanceLock:
 
     @staticmethod
     def _is_process_running(pid: int) -> bool:
-        """Check if a process with the given PID is currently active on Windows."""
+        """Check if a process with the given PID is currently active."""
+        if pid <= 0:
+            return False
+
+        try:
+            import psutil
+            if psutil.pid_exists(pid):
+                proc = psutil.Process(pid)
+                return proc.is_running() and proc.status() != getattr(psutil, "STATUS_ZOMBIE", "zombie")
+            return False
+        except Exception:
+            pass
+
         if os.name == "nt":
             import ctypes
             kernel32 = ctypes.windll.kernel32
-            process = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+            # PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            process = kernel32.OpenProcess(0x1000, False, pid)
             if process:
-                kernel32.CloseHandle(process)
-                return True
+                try:
+                    exit_code = ctypes.c_ulong()
+                    # STILL_ACTIVE = 259
+                    if kernel32.GetExitCodeProcess(process, ctypes.byref(exit_code)):
+                        return exit_code.value == 259
+                    return False
+                finally:
+                    kernel32.CloseHandle(process)
             return False
         else:
             try:
@@ -86,9 +105,10 @@ class SingleInstanceLock:
 
 def is_port_in_use(host: str, port: int) -> bool:
     """Test whether a TCP port is already in use."""
+    connect_host = "127.0.0.1" if host in ("0.0.0.0", "") else host
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(0.5)
-        return s.connect_ex((host, port)) == 0
+        return s.connect_ex((connect_host, port)) == 0
 
 
 def find_available_port(host: str, preferred_port: int, max_attempts: int = 10) -> int:
@@ -103,7 +123,8 @@ def wait_for_server_ready(host: str, port: int, timeout: float = 15.0) -> bool:
     """
     Polls /api/health until the server responds HTTP 200 OK.
     """
-    url = f"http://{host}:{port}/api/health"
+    connect_host = "127.0.0.1" if host in ("0.0.0.0", "") else host
+    url = f"http://{connect_host}:{port}/api/health"
     start_time = time.time()
 
     while time.time() - start_time < timeout:
@@ -124,6 +145,15 @@ def main() -> int:
     """
     Main application bootstrap entry point.
     """
+    # 0. Anchor working directory to application base directory so relative paths resolve cleanly
+    from app.core.paths import get_base_dir
+    try:
+        base_dir = get_base_dir()
+        if base_dir.exists():
+            os.chdir(str(base_dir))
+    except Exception:
+        pass
+
     # 1. Setup logging
     setup_logging()
     logger.info("=" * 60)
@@ -134,12 +164,24 @@ def main() -> int:
     # 2. Acquire single instance lock
     lock_file = get_data_dir() / "runtime" / "vicentra.lock"
     lock = SingleInstanceLock(lock_file)
+    connect_host = "127.0.0.1" if settings.SERVER_HOST in ("0.0.0.0", "") else settings.SERVER_HOST
+    dashboard_url = f"http://{connect_host}:{settings.SERVER_PORT}/"
+
     if not lock.acquire():
-        logger.warning("Another instance of VICENTRA is already running.")
-        dashboard_url = f"http://{settings.SERVER_HOST}:{settings.SERVER_PORT}/"
-        logger.info(f"Opening browser to active instance: {dashboard_url}")
-        webbrowser.open(dashboard_url)
-        return 0
+        if not is_port_in_use(settings.SERVER_HOST, settings.SERVER_PORT):
+            logger.warning("Stale lock file detected (server not listening). Clearing stale lock and retrying...")
+            try:
+                lock_file.unlink(missing_ok=True)
+            except OSError:
+                pass
+            if not lock.acquire():
+                logger.error("Failed to acquire single-instance lock after clearing stale file.")
+                return 1
+        else:
+            logger.warning("Another instance of VICENTRA is already running.")
+            logger.info(f"Opening browser to active instance: {dashboard_url}")
+            webbrowser.open(dashboard_url)
+            return 0
 
     # 3. Determine host and port
     host = settings.SERVER_HOST
@@ -148,8 +190,8 @@ def main() -> int:
     if port != preferred_port:
         logger.warning(f"Preferred port {preferred_port} in use. Using port {port} instead.")
 
-    dashboard_url = f"http://{host}:{port}/"
-    logger.info(f"Configured server: {dashboard_url}")
+    dashboard_url = f"http://{connect_host}:{port}/"
+    logger.info(f"Configured server: {dashboard_url} (binding on {host}:{port})")
 
     # 4. Configure Uvicorn server
     config = uvicorn.Config(

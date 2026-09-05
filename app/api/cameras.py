@@ -24,11 +24,13 @@ def get_cameras(db: Session = Depends(get_db)):
 @router.post("", response_model=schemas.CameraResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=schemas.CameraResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def create_camera(camera: schemas.CameraCreate, db: Session = Depends(get_db)):
-    db_camera = db.query(models.Camera).filter(models.Camera.camera_id == camera.camera_id).first()
+    camera_data = camera.model_dump()
+    camera_data["camera_id"] = camera_data["camera_id"].strip()
+    db_camera = db.query(models.Camera).filter(models.Camera.camera_id == camera_data["camera_id"]).first()
     if db_camera:
         raise HTTPException(status_code=400, detail="Camera ID already registered")
     
-    new_camera = models.Camera(**camera.model_dump())
+    new_camera = models.Camera(**camera_data)
     db.add(new_camera)
     db.commit()
     db.refresh(new_camera)
@@ -99,14 +101,24 @@ def update_camera(camera_id: str, camera_update: schemas.CameraUpdate, db: Sessi
 
 @router.delete("/{camera_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_camera(camera_id: str, db: Session = Depends(get_db)):
-    db_camera = db.query(models.Camera).filter(models.Camera.camera_id == camera_id).first()
+    clean_id = camera_id.strip()
+    db_camera = db.query(models.Camera).filter(
+        (models.Camera.camera_id == clean_id) | (models.Camera.camera_id == camera_id)
+    ).first()
     if not db_camera:
         raise HTTPException(status_code=404, detail="Camera not found")
     
-    stream_manager.remove_stream(camera_id)
-    inference_manager.remove_inference(camera_id)
-    tracking_manager.remove_tracking(camera_id)
-    zone_manager.remove_zone_evaluation(camera_id)
+    actual_id = db_camera.camera_id
+    stream_manager.remove_stream(actual_id)
+    inference_manager.remove_inference(actual_id)
+    tracking_manager.remove_tracking(actual_id)
+    zone_manager.remove_zone_evaluation(actual_id)
+    
+    # Cascade delete any associated zones in DB
+    db.query(models.Zone).filter(
+        (models.Zone.camera_id == actual_id) | (models.Zone.camera_id == clean_id)
+    ).delete()
+    
     db.delete(db_camera)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
