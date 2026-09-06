@@ -56,7 +56,7 @@ export function App() {
                 />
               }
             />
-            <Route path="/zones" element={<Zones cameras={cameras} />} />
+            <Route path="/zones" element={<Zones cameras={cameras} healthMap={healthMap} />} />
             <Route path="/events" element={<Events cameras={cameras} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

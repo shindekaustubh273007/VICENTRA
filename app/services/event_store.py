@@ -88,16 +88,34 @@ class EventStore:
 
             return filtered[-limit:]
 
-    def clear(self, camera_id: Optional[str] = None):
+    def clear(self, camera_id: Optional[str] = None, zone_id: Optional[str] = None):
         with self._lock:
-            if camera_id:
+            if zone_id and camera_id:
+                if camera_id in self._store:
+                    self._store[camera_id] = collections.deque(
+                        [e for e in self._store[camera_id] if e.zone_id != zone_id],
+                        maxlen=self.max_per_camera,
+                    )
+                self._global_store = collections.deque(
+                    [e for e in self._global_store if not (e.camera_id == camera_id and e.zone_id == zone_id)],
+                    maxlen=self._global_store.maxlen,
+                )
+            elif zone_id:
+                for cam_id in list(self._store.keys()):
+                    self._store[cam_id] = collections.deque(
+                        [e for e in self._store[cam_id] if e.zone_id != zone_id],
+                        maxlen=self.max_per_camera,
+                    )
+                self._global_store = collections.deque(
+                    [e for e in self._global_store if e.zone_id != zone_id],
+                    maxlen=self._global_store.maxlen,
+                )
+            elif camera_id:
                 self._store.pop(camera_id, None)
-                # Filter out camera events from global store
-                new_global = collections.deque(
+                self._global_store = collections.deque(
                     [e for e in self._global_store if e.camera_id != camera_id],
                     maxlen=self._global_store.maxlen,
                 )
-                self._global_store = new_global
             else:
                 self._store.clear()
                 self._global_store.clear()

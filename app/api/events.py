@@ -50,3 +50,17 @@ def get_events(
     ]
 
     return EventListResponse(count=len(items), events=items)
+
+
+@router.delete("")
+@router.delete("/", include_in_schema=False)
+def clear_events(
+    camera_id: Optional[str] = Query(default=None, description="Clear events for a specific camera ID"),
+    zone_id: Optional[str] = Query(default=None, description="Clear events for a specific zone ID"),
+):
+    """
+    Clear/acknowledge stored zone and security intrusion events.
+    """
+    event_store.clear(camera_id=camera_id, zone_id=zone_id)
+    return {"status": "ok", "message": "Events cleared successfully"}
+

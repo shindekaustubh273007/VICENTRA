@@ -18,6 +18,7 @@ from app.database.database import get_db
 from app.database import models
 from app.models import schemas
 from app.services.zone_store import zone_store, ZoneData
+from app.services.event_store import event_store
 
 camera_zone_router = APIRouter()
 zone_router = APIRouter()
@@ -214,6 +215,7 @@ def delete_zone(zone_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail=f"Zone '{zone_id}' not found")
 
     zone_store.remove_zone(zone_id)
+    event_store.clear(zone_id=zone_id)
     db.delete(z)
     db.commit()
 

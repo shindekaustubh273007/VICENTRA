@@ -56,7 +56,12 @@ export function useEvents(maxItems = MAX_EVENTS) {
     };
   }, [maxItems]);
 
-  const clearEvents = useCallback(() => {
+  const clearEvents = useCallback(async (params = {}) => {
+    try {
+      await api.clearEvents(params);
+    } catch (err) {
+      console.warn('Failed to clear events on backend:', err);
+    }
     setEvents([]);
   }, []);
 

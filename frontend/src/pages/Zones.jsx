@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../services/api';
 import { ZoneOverlay } from '../components/ZoneOverlay';
 import { ZoneDrawingCanvas } from '../components/ZoneDrawingCanvas';
 
-export function Zones({ cameras }) {
+export function Zones({ cameras, healthMap = {} }) {
   const [selectedCameraId, setSelectedCameraId] = useState(cameras[0]?.camera_id || '');
   const [zones, setZones] = useState([]);
   const [editorOpen, setEditorOpen] = useState(false);
   const [frameUrl, setFrameUrl] = useState('');
+  const [frameDims, setFrameDims] = useState({ width: 1280, height: 720 });
+  const previewImgRef = useRef(null);
 
   // Editor form state
   const [zoneName, setZoneName] = useState('');
@@ -39,6 +41,27 @@ export function Zones({ cameras }) {
       setFrameUrl(api.getFrameUrl(selectedCameraId, false));
     }
   }, [fetchZones, selectedCameraId]);
+
+  // Periodic frame refresh for the spatial fence mesh preview
+  useEffect(() => {
+    if (!selectedCameraId) return;
+    const health = healthMap[selectedCameraId];
+    const isOnline = health?.status === 'ONLINE';
+    if (!isOnline) return;
+
+    const interval = setInterval(() => {
+      setFrameUrl(api.getFrameUrl(selectedCameraId, false));
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [selectedCameraId, healthMap]);
+
+  // Detect native frame dimensions from loaded image
+  const handlePreviewImageLoad = useCallback((e) => {
+    const img = e.target;
+    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+      setFrameDims({ width: img.naturalWidth, height: img.naturalHeight });
+    }
+  }, []);
 
   // ── Open / Close Editor ──────────────────────────────────────────
   const openEditor = useCallback(() => {
@@ -163,15 +186,17 @@ export function Zones({ cameras }) {
         <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', backgroundColor: '#000000', overflow: 'hidden' }}>
           {selectedCameraId ? (
             <img
+              ref={previewImgRef}
               src={frameUrl}
               alt="Camera Zone Viewport"
               style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              onLoad={handlePreviewImageLoad}
               onError={(e) => {
                 e.target.style.display = 'none';
               }}
             />
           ) : null}
-          <ZoneOverlay zones={zones} width={1280} height={720} />
+          <ZoneOverlay zones={zones} width={frameDims.width} height={frameDims.height} />
         </div>
       </div>
 

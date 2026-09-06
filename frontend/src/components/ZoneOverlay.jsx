@@ -4,13 +4,22 @@ import React from 'react';
  * Tactical SVG-based overlay component for rendering polygon zones over a camera frame.
  * Renders precision military C2 HUD wireframes with crosshair vertex reticles.
  */
-export function ZoneOverlay({ zones = [], width = 640, height = 360 }) {
+export function ZoneOverlay({ zones = [], width = 1280, height = 720 }) {
   if (!zones || zones.length === 0) return null;
+
+  const scale = Math.max(0.6, Math.min(width, height) / 720);
+  const strokeW = Math.max(1.5, 2 * scale);
+  const chSize = 5 * scale;
+  const dotR = 2.5 * scale;
+  const tagW = 100 * scale;
+  const tagH = 22 * scale;
+  const tagFont = Math.max(9, Math.round(11 * scale));
 
   return (
     <svg
       className="zone-overlay-svg"
       viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="xMidYMid meet"
       style={{
         position: 'absolute',
         top: 0,
@@ -41,32 +50,33 @@ export function ZoneOverlay({ zones = [], width = 640, height = 360 }) {
               points={pointsStr}
               fill={fillColor}
               stroke={strokeColor}
-              strokeWidth="1.5"
-              strokeDasharray={isRestricted ? 'none' : '4,3'}
+              strokeWidth={strokeW}
+              strokeDasharray={isRestricted ? 'none' : `${5 * scale},${3 * scale}`}
             />
             {zone.coordinates.map((pt, idx) => (
               <g key={idx}>
                 {/* Precision Tactical Crosshair Node */}
-                <line x1={pt.x - 4} y1={pt.y} x2={pt.x + 4} y2={pt.y} stroke={strokeColor} strokeWidth="1.5" />
-                <line x1={pt.x} y1={pt.y - 4} x2={pt.x} y2={pt.y + 4} stroke={strokeColor} strokeWidth="1.5" />
-                <circle cx={pt.x} cy={pt.y} r="2" fill="#ffffff" />
+                <line x1={pt.x - chSize} y1={pt.y} x2={pt.x + chSize} y2={pt.y} stroke={strokeColor} strokeWidth={strokeW} />
+                <line x1={pt.x} y1={pt.y - chSize} x2={pt.x} y2={pt.y + chSize} stroke={strokeColor} strokeWidth={strokeW} />
+                <circle cx={pt.x} cy={pt.y} r={dotR} fill="#ffffff" />
               </g>
             ))}
             {/* Centroid Tactical Callout Tag */}
             <rect
-              x={centerX - 45}
-              y={centerY - 9}
-              width="90"
-              height="18"
+              x={centerX - tagW / 2}
+              y={centerY - tagH / 2}
+              width={tagW}
+              height={tagH}
               fill="rgba(8, 8, 10, 0.88)"
               stroke={strokeColor}
-              strokeWidth="1"
+              strokeWidth={Math.max(1, scale)}
+              rx={2 * scale}
             />
             <text
               x={centerX}
-              y={centerY + 3}
+              y={centerY + (tagFont * 0.35)}
               fill="#ffffff"
-              fontSize="9"
+              fontSize={tagFont}
               fontFamily="JetBrains Mono, monospace"
               fontWeight="600"
               letterSpacing="0.5"

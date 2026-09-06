@@ -1,11 +1,56 @@
-dist/
-build/
+# ─── Python ───────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
 *.pyd
 *.dll
-__pycache__/
-*.pyc
+*.so
+*.dylib
+
+# ─── Virtual Environments ────────────────────────────────────────────
 .venv/
 venv/
+ENV/
+env/
+
+# ─── Packaging & Distribution ────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+*.spec
+
+# ─── Database & Runtime State ────────────────────────────────────────
 *.db
 *.sqlite
 *.sqlite3
+vicentra.lock
+
+# ─── Environment & Secrets ───────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─── IDEs and Editors ────────────────────────────────────────────────
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─── Testing & Coverage ─────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ─── Operating System Files ──────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── YOLO Model Weights (large binary, auto-downloaded) ─────────────
+*.pt

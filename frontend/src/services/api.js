@@ -78,4 +78,11 @@ export const api = {
     const qs = query.toString();
     return request(`/api/events${qs ? `?${qs}` : ''}`);
   },
+  clearEvents: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.cameraId) query.append('camera_id', params.cameraId);
+    if (params.zoneId) query.append('zone_id', params.zoneId);
+    const qs = query.toString();
+    return request(`/api/events${qs ? `?${qs}` : ''}`, { method: 'DELETE' });
+  },
 };

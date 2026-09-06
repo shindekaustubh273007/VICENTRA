@@ -36,6 +36,25 @@ export function Events({ cameras }) {
     return date.toLocaleString();
   };
 
+  const handleClearAudit = async () => {
+    const scopeMsg = filterCamera
+      ? `Acknowledge and purge all security incident records for sensor ${filterCamera}?`
+      : 'Acknowledge and purge ALL security incident records from the audit log?';
+    if (window.confirm(scopeMsg)) {
+      try {
+        setLoading(true);
+        await api.clearEvents({
+          cameraId: filterCamera || undefined,
+        });
+        setEvents([]);
+      } catch (err) {
+        console.error('Failed to clear audit log:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -44,10 +63,22 @@ export function Events({ cameras }) {
           <p className="page-subtitle">Chronological tamper-evident audit record of perimeter fence crossings and intrusion events</p>
         </div>
 
-        <button className="btn-secondary" onClick={fetchEvents} disabled={loading} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-          <span className="material-symbols-outlined text-sm">sync</span>
-          <span>{loading ? 'Querying...' : 'Refresh Audit'}</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button className="btn-secondary" onClick={fetchEvents} disabled={loading} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <span className="material-symbols-outlined text-sm">sync</span>
+            <span>{loading ? 'Querying...' : 'Refresh Audit'}</span>
+          </button>
+          <button
+            className="btn-danger"
+            onClick={handleClearAudit}
+            disabled={loading || events.length === 0}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            title="Acknowledge and clear audit log"
+          >
+            <span className="material-symbols-outlined text-sm">delete_sweep</span>
+            <span>Clear Audit</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar */}
