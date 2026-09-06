@@ -15,32 +15,37 @@ export function Navbar({ wsStatus, globalHealth }) {
             <span className="material-symbols-outlined">shield</span>
           </div>
           <div className="brand-text">
-            <span className="brand-title">Vicentra</span>
-            <span className="brand-tag">Ibvap Core</span>
+            <span className="brand-title">VICENTRA</span>
+            <span className="brand-tag">IBVAP CORE</span>
           </div>
         </div>
 
         <nav className="navbar-links">
-          <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-            Dashboard
+          <NavLink to="/" end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <span className="material-symbols-outlined nav-icon">dashboard</span>
+            <span>Dashboard</span>
           </NavLink>
           <NavLink to="/cameras" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-            Cameras
+            <span className="material-symbols-outlined nav-icon">videocam</span>
+            <span>Cameras</span>
           </NavLink>
           <NavLink to="/zones" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-            Virtual Zones
+            <span className="material-symbols-outlined nav-icon">crop_free</span>
+            <span>Virtual Zones</span>
           </NavLink>
           <NavLink to="/events" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-            Incident Log
+            <span className="material-symbols-outlined nav-icon">history_toggle_off</span>
+            <span>Incident Log</span>
           </NavLink>
         </nav>
       </div>
 
       <div className="navbar-right">
-        <div className="system-pill" title="Backend Server Status">
+        <div className="system-pill" title="Backend Stream Manager Telemetry">
           <span className={`status-indicator ${isServerUp ? 'status-up' : 'status-down'}`} />
-          <span>System: {isServerUp ? 'Online' : 'Offline'}</span>
-          <span className="stream-count">({activeStreams}/{totalStreams} streams)</span>
+          <span className="system-pill-status">SYSTEM {isServerUp ? 'ONLINE' : 'OFFLINE'}</span>
+          <span className="stream-count-divider">|</span>
+          <span className="stream-count">{activeStreams}/{totalStreams} STREAMS</span>
         </div>
 
         <ConnectionBadge status={wsStatus} />

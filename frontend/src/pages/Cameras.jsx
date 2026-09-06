@@ -267,7 +267,7 @@ export function Cameras({ cameras, healthMap, onStart, onStop, onDelete, onCreat
           <div className="card">
             <h3>Active Object Tracks ({selectedCameraId})</h3>
             {tracks.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: '11px', padding: '12px 0' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '11px', padding: '12px 0' }}>
                 No active tracking vectors detected on sensor {selectedCameraId}.
               </p>
             ) : (
@@ -299,7 +299,7 @@ export function Cameras({ cameras, healthMap, onStart, onStop, onDelete, onCreat
           <div className="card">
             <h3>Neural Detections ({selectedCameraId})</h3>
             {detections.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: '11px', padding: '12px 0' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '11px', padding: '12px 0' }}>
                 No bounding box classifications detected on sensor {selectedCameraId}.
               </p>
             ) : (

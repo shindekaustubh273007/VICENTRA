@@ -353,7 +353,6 @@ export function ZoneDrawingCanvas({
         <div className="zone-editor-toolbar-group">
           <span
             style={{
-              fontFamily: 'var(--font-mono)',
               fontSize: '10px',
               color: 'var(--text-dim)',
             }}
@@ -538,7 +537,6 @@ export function ZoneDrawingCanvas({
               padding: '3px 8px',
               background: 'rgba(0, 0, 0, 0.75)',
               border: '1px solid var(--glass-border)',
-              fontFamily: 'var(--font-mono)',
               fontSize: '10px',
               color: 'var(--text-muted)',
               pointerEvents: 'none',

@@ -4,20 +4,25 @@ export function MetricCard({ title, value, subtitle, icon, trend, variant = 'def
   return (
     <div className={`metric-card metric-${variant}`}>
       <div className="metric-header">
-        <span className="metric-title">
+        <div className="metric-title">
           {icon && (
-            typeof icon === 'string' && icon.length > 2 ? (
+            <div className="metric-icon-box">
               <span className="material-symbols-outlined metric-icon">{icon}</span>
-            ) : (
-              <span className="metric-icon">{icon}</span>
-            )
+            </div>
           )}
-          {title}
-        </span>
+          <span className="metric-title-text">{title}</span>
+        </div>
         {trend && <span className="metric-trend">{trend}</span>}
       </div>
-      <div className="metric-value">{value}</div>
-      {subtitle && <div className="metric-subtitle">{subtitle}</div>}
+      <div className="metric-value-row">
+        <div className="metric-value">{value}</div>
+      </div>
+      {subtitle && (
+        <div className="metric-subtitle">
+          <span>{subtitle}</span>
+          <span className="metric-status-dot" />
+        </div>
+      )}
     </div>
   );
 }

@@ -142,61 +142,157 @@ export function Zones({ cameras, healthMap = {} }) {
           <p className="page-subtitle">Configure polygon perimeter tripwires and restricted intrusion zones</p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <select
-            value={selectedCameraId}
-            onChange={(e) => setSelectedCameraId(e.target.value)}
-            style={{ padding: '7px 12px' }}
-          >
-            {cameras.map((c) => (
-              <option key={c.camera_id} value={c.camera_id}>
-                {c.name} ({c.camera_id})
-              </option>
-            ))}
-          </select>
+        <div className="page-header-actions">
+          <div className="select-wrapper">
+            <span className="select-label">SENSOR:</span>
+            <select
+              value={selectedCameraId}
+              onChange={(e) => setSelectedCameraId(e.target.value)}
+              className="tactical-select"
+            >
+              {cameras.map((c) => (
+                <option key={c.camera_id} value={c.camera_id}>
+                  {c.name} ({c.camera_id})
+                </option>
+              ))}
+            </select>
+          </div>
           <button className="btn-primary" onClick={openEditor}>
-            + Define Zone
+            <span className="material-symbols-outlined text-sm">polyline</span>
+            <span>+ Define Zone</span>
           </button>
         </div>
       </div>
 
       {error && !editorOpen && <div className="error-banner">{error}</div>}
 
-      {/* Hero Spatial Viewport with Live SVG Zone Overlay */}
-      <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '10px 16px',
-          background: 'rgba(10, 10, 13, 0.95)',
-          borderBottom: '1px solid var(--hairline-divider)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-mono)', fontSize: '11px' }}>
-            <span className="material-symbols-outlined text-sm" style={{ color: 'var(--status-cyan)' }}>polyline</span>
-            <span style={{ color: '#ffffff', fontWeight: '700' }}>Spatial fence mesh</span>
-            <span style={{ color: 'var(--text-dim)' }}>|</span>
-            <span style={{ color: 'var(--text-muted)' }}>Sensor: {selectedCameraId || 'None'}</span>
+      {/* Main 2-Column Layout: Left = Hero Spatial Viewport, Right = Configured Zones */}
+      <div className="zones-workspace-grid">
+        {/* Left Column: Hero Spatial Viewport */}
+        <div className="zones-viewport-card">
+          <div className="zones-viewport-header">
+            <div className="viewport-header-left">
+              <span className="material-symbols-outlined text-sm text-cyan">polyline</span>
+              <span className="viewport-header-title">Spatial Fence Mesh</span>
+              <span className="viewport-header-divider">|</span>
+              <span className="viewport-header-sensor">Sensor: {selectedCameraId || 'None'}</span>
+            </div>
+            <div className="viewport-header-right">
+              <span className="zones-count-pill">
+                <span className="status-dot-active" />
+                {zones.length} {zones.length === 1 ? 'Zone Active' : 'Zones Active'}
+              </span>
+            </div>
           </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-muted)' }}>
-            {zones.length} {zones.length === 1 ? 'zone active' : 'zones active'}
+
+          <div className="zones-viewport-frame hud-grid-bg">
+            {selectedCameraId ? (
+              <img
+                ref={previewImgRef}
+                src={frameUrl}
+                alt="Camera Zone Viewport"
+                className="zones-preview-img"
+                onLoad={handlePreviewImageLoad}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            ) : null}
+            <ZoneOverlay zones={zones} width={frameDims.width} height={frameDims.height} />
+            <div className="zones-viewport-corner corner-tl" />
+            <div className="zones-viewport-corner corner-tr" />
+            <div className="zones-viewport-corner corner-bl" />
+            <div className="zones-viewport-corner corner-br" />
+          </div>
+
+          <div className="zones-viewport-footer">
+            <div className="viewport-footer-left">
+              <span className="status-indicator status-up" />
+              <span>DETECTION ACTIVE (PERSON &amp; VEHICLE)</span>
+              <span className="footer-divider">•</span>
+              <span className="text-muted">VIRTUAL FENCE WIREFRAME v4.2</span>
+            </div>
+            <div className="viewport-footer-right">
+              <span>NATIVE: {frameDims.width}×{frameDims.height}</span>
+            </div>
           </div>
         </div>
 
-        <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', backgroundColor: '#000000', overflow: 'hidden' }}>
-          {selectedCameraId ? (
-            <img
-              ref={previewImgRef}
-              src={frameUrl}
-              alt="Camera Zone Viewport"
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-              onLoad={handlePreviewImageLoad}
-              onError={(e) => {
-                e.target.style.display = 'none';
-              }}
-            />
-          ) : null}
-          <ZoneOverlay zones={zones} width={frameDims.width} height={frameDims.height} />
+        {/* Right Column: Configured Zones Sidebar */}
+        <div className="zones-sidebar-panel">
+          <div className="zones-sidebar-header">
+            <div className="sidebar-title-row">
+              <span className="material-symbols-outlined text-sm text-muted">view_in_ar</span>
+              <span className="sidebar-title">CONFIGURED ZONES</span>
+              <span className="sidebar-count-badge">{zones.length}</span>
+            </div>
+            <button className="btn-small btn-secondary" onClick={openEditor}>
+              <span className="material-symbols-outlined text-xs">add</span>
+              <span>Add</span>
+            </button>
+          </div>
+
+          <div className="zones-card-list">
+            {zones.length === 0 ? (
+              <div className="empty-zones-card">
+                <span className="material-symbols-outlined empty-icon">crop_free</span>
+                <h4>No Virtual Zones Configured</h4>
+                <p>Define restricted polygons or buffer zones on camera {selectedCameraId || 'sensor'} to begin automated boundary tripwire alerts.</p>
+                <button className="btn-primary btn-small" onClick={openEditor} style={{ marginTop: '12px' }}>
+                  <span className="material-symbols-outlined text-xs">polyline</span>
+                  <span>Draw First Polygon</span>
+                </button>
+              </div>
+            ) : (
+              zones.map((zone) => {
+                const isRestricted = zone.zone_type === 'restricted';
+
+                return (
+                  <div key={zone.zone_id} className={`zone-tactical-card ${isRestricted ? 'zone-card-restricted' : 'zone-card-buffer'}`}>
+                    <div className="zone-card-header">
+                      <div>
+                        <h4 className="zone-card-name">{zone.name}</h4>
+                        <span className="zone-card-id">ID: {zone.zone_id}</span>
+                      </div>
+                      <span className={`status-pill ${isRestricted ? 'status-ERROR' : 'status-ONLINE'}`}>
+                        {zone.zone_type ? zone.zone_type.toUpperCase() : 'ARMED'}
+                      </span>
+                    </div>
+
+                    <div className="zone-card-body">
+                      <div className="zone-meta-row">
+                        <span className="zone-meta-label">TARGETS:</span>
+                        <div className="zone-tags-wrap">
+                          {zone.target_categories?.map((cat, i) => (
+                            <span key={i} className="badge-class">{cat}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="zone-meta-row">
+                        <span className="zone-meta-label">VERTICES ({zone.coordinates?.length || 0}):</span>
+                        <div className="coords-box">
+                          {zone.coordinates?.map((pt, i) => (
+                            <span key={i} className="coord-chip">V{i + 1}: [{Math.round(pt.x)}, {Math.round(pt.y)}]</span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="zone-card-actions">
+                      <span className="zone-armed-status">
+                        <span className="zone-status-dot" />
+                        Armed &amp; Monitoring
+                      </span>
+                      <button className="btn-small btn-danger" onClick={() => handleDeleteZone(zone.zone_id)} title="Delete Virtual Zone">
+                        <span className="material-symbols-outlined text-xs">delete</span>
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
 
@@ -279,7 +375,6 @@ export function Zones({ cameras, healthMap = {} }) {
                       </div>
                     ) : (
                       <span style={{
-                        fontFamily: 'var(--font-mono)',
                         fontSize: '10px',
                         color: 'var(--text-dim)',
                       }}>
@@ -307,62 +402,6 @@ export function Zones({ cameras, healthMap = {} }) {
           </div>
         </div>
       )}
-
-      {/* Zone Registry Grid */}
-      <div>
-        <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: '700', color: '#ffffff', marginBottom: '12px', letterSpacing: '0.5px' }}>
-          Configured Virtual Zones ({selectedCameraId})
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '14px' }}>
-          {zones.length === 0 ? (
-            <div className="card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '32px', marginBottom: '8px', display: 'inline-block' }}>crop_free</span>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>No virtual zones defined for {selectedCameraId || 'camera'}.</p>
-            </div>
-          ) : (
-            zones.map((zone) => {
-              const isRestricted = zone.zone_type === 'restricted';
-
-              return (
-                <div key={zone.zone_id} className="card" style={{ borderLeft: `3px solid ${isRestricted ? 'var(--neon-crimson)' : 'var(--status-cyan)'}` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                    <div>
-                      <h4 style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: '700', color: '#ffffff' }}>{zone.name}</h4>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-dim)' }}>ID: {zone.zone_id}</span>
-                    </div>
-                    <span className={`status-pill ${isRestricted ? 'status-ERROR' : 'status-ONLINE'}`}>
-                      {zone.zone_type ? zone.zone_type.charAt(0).toUpperCase() + zone.zone_type.slice(1).toLowerCase() : ''}
-                    </span>
-                  </div>
-
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div>
-                      <span>Targets: </span>
-                      {zone.target_categories?.map((cat, i) => (
-                        <span key={i} className="badge-class">{cat}</span>
-                      ))}
-                    </div>
-                    <div>
-                      <span>Vertices ({zone.coordinates?.length || 0}): </span>
-                      <div className="coords-box">
-                        {zone.coordinates?.map((pt, i) => (
-                          <span key={i} className="coord-chip">[{Math.round(pt.x)}, {Math.round(pt.y)}]</span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: '12px', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
-                    <button className="btn-small btn-danger" onClick={() => handleDeleteZone(zone.zone_id)}>
-                      De-register Zone
-                    </button>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
     </div>
   );
 }

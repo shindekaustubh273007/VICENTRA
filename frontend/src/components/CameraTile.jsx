@@ -79,19 +79,27 @@ export function CameraTile({ camera, health, onStart, onStop, onExpand }) {
 
         {/* Overlaid tactical metadata bar */}
         <div className="tile-meta-overlay">
-          <span>{fps.toFixed ? fps.toFixed(1) : fps} / {targetFps} fps</span>
-          <span>{resolution !== '--' ? `${resolution} • ` : ''}{sourceType}</span>
+          <div className="tile-meta-left">
+            {isOnline && <span className="tile-live-pulse" />}
+            <span>{fps.toFixed ? fps.toFixed(1) : fps} / {targetFps} FPS</span>
+          </div>
+          <div className="tile-meta-right">
+            {resolution !== '--' && <span className="tile-meta-tag">{resolution}</span>}
+            <span className="tile-meta-tag">{sourceType}</span>
+          </div>
         </div>
       </div>
 
       <div className="tile-actions">
         {isOnline ? (
-          <button className="btn-tile btn-danger" onClick={() => onStop?.(camera.camera_id)}>
-            Stop Feed
+          <button className="btn-tile btn-danger" onClick={(e) => { e.stopPropagation(); onStop?.(camera.camera_id); }}>
+            <span className="material-symbols-outlined text-xs">stop</span>
+            <span>Stop Feed</span>
           </button>
         ) : (
-          <button className="btn-tile btn-success" onClick={() => onStart?.(camera.camera_id)}>
-            Start Feed
+          <button className="btn-tile btn-success" onClick={(e) => { e.stopPropagation(); onStart?.(camera.camera_id); }}>
+            <span className="material-symbols-outlined text-xs">play_arrow</span>
+            <span>Start Feed</span>
           </button>
         )}
         <button
@@ -99,7 +107,8 @@ export function CameraTile({ camera, health, onStart, onStop, onExpand }) {
           onClick={() => onExpand?.(camera, frameUrl)}
           disabled={!isOnline}
         >
-          Inspect
+          <span className="material-symbols-outlined text-xs">open_in_full</span>
+          <span>Inspect</span>
         </button>
       </div>
     </div>

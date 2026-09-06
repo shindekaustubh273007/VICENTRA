@@ -57,7 +57,9 @@ export function App() {
               }
             />
             <Route path="/zones" element={<Zones cameras={cameras} healthMap={healthMap} />} />
+            <Route path="/virtual-zones" element={<Zones cameras={cameras} healthMap={healthMap} />} />
             <Route path="/events" element={<Events cameras={cameras} />} />
+            <Route path="/incident-log" element={<Events cameras={cameras} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

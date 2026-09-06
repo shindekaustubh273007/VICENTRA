@@ -77,7 +77,7 @@ export function ZoneOverlay({ zones = [], width = 1280, height = 720 }) {
               y={centerY + (tagFont * 0.35)}
               fill="#ffffff"
               fontSize={tagFont}
-              fontFamily="JetBrains Mono, monospace"
+              fontFamily="'Source Sans Pro', 'Source Sans 3', sans-serif"
               fontWeight="600"
               letterSpacing="0.5"
               textAnchor="middle"

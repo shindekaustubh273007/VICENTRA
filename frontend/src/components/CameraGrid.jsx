@@ -15,7 +15,7 @@ export function CameraGrid({ cameras, healthMap, onStart, onStop, onExpand }) {
   }
 
   return (
-    <div className="camera-grid">
+    <div className={`camera-grid ${cameras.length === 1 ? 'camera-grid-single' : cameras.length === 2 ? 'camera-grid-dual' : ''}`}>
       {cameras.map((camera) => (
         <CameraTile
           key={camera.camera_id}
